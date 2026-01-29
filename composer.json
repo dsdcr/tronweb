@@ -1,0 +1,53 @@
+{
+    "name": "dsdcr/tronweb",
+    "description": "A PHP API for interacting with Tron (Trx)",
+    "license": "MIT",
+    "type":   "library",
+    "homepage": "https://github.com/dsdcr/tronweb",
+    "authors": [
+        {
+            "name": "Shamsudin Serderov",
+            "email": "steein.shamsudin@gmail.com"
+        }
+    ],
+    "keywords": [
+        "dsdcr",
+        "tronweb",
+        "tron-lib",
+        "tron-php",
+        "tron-api",
+        "tron-rest-api"
+    ],
+
+    "require": {
+        "php": ">=8.0",
+        "ext-bcmath": "*",
+        "ext-gmp": "*",
+        "ext-mbstring": "*",
+        "ext-openssl": "*",
+        "guzzlehttp/guzzle": ">=6.0",
+        "simplito/elliptic-php": "^1.0"
+    },
+
+    "require-dev": {
+        "phpunit/phpunit": "^9.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Dsdcr\\TronWeb\\": "src"
+        }
+    },
+
+    "autoload-dev": {
+        "psr-4": {
+            "Dsdcr\\TronWeb\\Test\\": "tests"
+        }
+    },
+
+    "config": {
+        "sort-packages": true
+    },
+
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
