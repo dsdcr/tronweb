@@ -510,7 +510,7 @@ php examples/run_all_examples.php
 
 ## 🆕 版本历史
 
-### v1.0.0 (2026-02-03)
+### v2.0.0 (2026-02-08)
 - ✅ 完整的类型系统实现
 - ✅ 135+ 个公开方法
 - ✅ 9 个核心模块（Trx、Account、Contract、Token、Resource、Network、Utils、TransactionBuilder）
@@ -531,5 +531,4 @@ php examples/run_all_examples.php
 
 ---
 
-**文档版本**: 1.0.0  
 **最后更新**: 2026-02-08  
