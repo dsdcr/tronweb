@@ -16,8 +16,22 @@ ERC20 是 TRON 网络上最常用的代币标准。
 
 ### 获取合约实例
 
+
+## 工具方法
+
+### combined() - 组合多种 ABI
+
 ```php
-$tokenContract = $tronWeb->contract()->at($tokenAddress);
+use Dsdcr\TronWeb\Config\DefaultAbi;
+
+// 组合多种 ABI
+$abi = DefaultAbi::combined(['erc20', 'router']);
+// 支持的类型：'erc20', 'router', 'v3router', 'fibonacci'
+
+// 使用组合后的 ABI
+$contract = $tronWeb->contract($abi)->at($contractAddress);
+// 使用组合后的所有 ABI
+$contract = $tronWeb->contract()->at($contractAddress);
 ```
 
 ### 1. name() - 查询代币名称
@@ -305,40 +319,6 @@ $fibonacciContract->events()->Notify()->watch(function($event) {
     echo "Input: " . $event['result']['input'] . "\n";
     echo "Result: " . $event['result']['result'] . "\n";
 });
-```
-
----
-
-## 工具方法
-
-### 1. combined() - 组合多种 ABI
-
-```php
-use Dsdcr\TronWeb\Config\DefaultAbi;
-
-// 组合多种 ABI
-$abi = DefaultAbi::combined(['erc20', 'router']);
-// 支持的类型：'erc20', 'router', 'v3router', 'fibonacci'
-
-// 使用组合后的 ABI
-$contract = $tronWeb->contract($abi)->at($contractAddress);
-// 使用组合后的所有 ABI
-$contract = $tronWeb->contract()->at($contractAddress);
-```
-
-### 2. getAvailableTypes() - 获取可用类型列表
-
-```php
-use Dsdcr\TronWeb\Config\DefaultAbi;
-
-$types = DefaultAbi::getAvailableTypes();
-// 返回：
-// [
-//     'erc20' => 'ERC20 标准代币方法 - 完整的代币接口',
-//     'router' => 'SunSwap V2 路由方法 - 包含价格查询和各种交换方法',
-//     'v3router' => 'SunSwap V3 路由方法 - 支持 V3 特有的集中流动性功能',
-//     'fibonacci' => 'Fibonacci 示例合约 - 包含斐波那契数列计算和通知事件'
-// ]
 ```
 
 ---

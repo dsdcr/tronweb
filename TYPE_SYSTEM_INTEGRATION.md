@@ -127,7 +127,6 @@ vendor/dsdcr/tronweb/
 ### 3.1 TronWeb 主类
 
 **文件**: `src/TronWeb.php`  
-**行数**: 302 行
 
 #### 方法列表
 
@@ -152,7 +151,6 @@ vendor/dsdcr/tronweb/
 ### 3.2 Account 模块
 
 **文件**: `src/Modules/Account.php`  
-**行数**: 671 行
 
 #### 方法列表
 
@@ -176,7 +174,6 @@ vendor/dsdcr/tronweb/
 ### 3.3 Trx 模块
 
 **文件**: `src/Modules/Trx.php`  
-**行数**: 1339 行
 
 #### 方法列表
 
@@ -233,7 +230,6 @@ vendor/dsdcr/tronweb/
 ### 3.4 Token 模块
 
 **文件**: `src/Modules/Token.php`  
-**行数**: 599 行
 
 #### 方法列表
 
@@ -258,7 +254,6 @@ vendor/dsdcr/tronweb/
 ### 3.5 Contract 模块
 
 **文件**: `src/Modules/Contract.php`  
-**行数**: 343 行
 
 #### 方法列表
 
@@ -276,7 +271,6 @@ vendor/dsdcr/tronweb/
 ### 3.6 Resource 模块
 
 **文件**: `src/Modules/Resource.php`  
-**行数**: 596 行
 
 #### 方法列表
 
@@ -300,7 +294,6 @@ vendor/dsdcr/tronweb/
 ### 3.7 Network 模块
 
 **文件**: `src/Modules/Network.php`  
-**行数**: 280 行
 
 #### 方法列表
 
@@ -327,7 +320,6 @@ vendor/dsdcr/tronweb/
 ### 3.8 TransactionBuilder 模块
 
 **文件**: `src/Modules/TransactionBuilder.php`  
-**行数**: 1110 行
 
 #### 方法列表
 
@@ -360,7 +352,6 @@ vendor/dsdcr/tronweb/
 ### 4.1 ContractInstance
 
 **文件**: `src/Modules/Contract/ContractInstance.php`  
-**行数**: 277 行
 
 #### 方法列表
 
@@ -368,7 +359,7 @@ vendor/dsdcr/tronweb/
 |--------|------|--------|------|
 | `__construct` | `TronWeb $tronWeb`, `$abi`, `?string $address` | - | 创建合约实例 |
 | `loadAbi` | `array $abi` | `void` | 加载 ABI 接口定义（内部方法） |
-| `__call` | `string $name`, `array $arguments` | `mixed` | 动态调用合约方法 |
+| `__call` | `string $name`, `array $arguments` | `mixed` | 动态调用合约方法（支持链式调用） |
 | `trigger` | `string $function`, `array $params`, `array $options` | `mixed` | 触发合约调用 |
 | `triggerConstant` | `string $function`, `array $params`, `?string $fromAddress` | `mixed` | 触发只读合约调用 |
 | `at` | `string $address` | `self` | 设置合约地址 |
@@ -384,7 +375,6 @@ vendor/dsdcr/tronweb/
 ### 4.2 ContractMethod
 
 **文件**: `src/Modules/Contract/ContractMethod.php`  
-**行数**: 292 行
 
 #### 方法列表
 
@@ -411,7 +401,6 @@ vendor/dsdcr/tronweb/
 ### 5.1 HttpProvider
 
 **文件**: `src/Provider/HttpProvider.php`  
-**行数**: 480 行
 
 #### 方法列表
 
@@ -446,7 +435,6 @@ vendor/dsdcr/tronweb/
 ### 5.2 TronManager
 
 **文件**: `src/Provider/TronManager.php`  
-**行数**: 271 行
 
 #### 方法列表
 
@@ -470,7 +458,6 @@ vendor/dsdcr/tronweb/
 ### 6.1 TronAddress
 
 **文件**: `src/Entities/TronAddress.php`  
-**行数**: 100 行
 
 #### 方法列表
 
@@ -490,7 +477,6 @@ vendor/dsdcr/tronweb/
 ### 7.1 TronUtils
 
 **文件**: `src/Support/TronUtils.php`  
-**行数**: 347 行
 
 #### 方法列表
 
@@ -527,7 +513,6 @@ vendor/dsdcr/tronweb/
 #### Base58
 
 **文件**: `src/Support/Base58.php`  
-**行数**: 32 行
 
 | 方法名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
@@ -537,7 +522,6 @@ vendor/dsdcr/tronweb/
 #### Base58Check
 
 **文件**: `src/Support/Base58Check.php`  
-**行数**: 70 行
 
 | 方法名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
@@ -547,7 +531,6 @@ vendor/dsdcr/tronweb/
 #### Crypto
 
 **文件**: `src/Support/Crypto.php`  
-**行数**: 122 行
 
 | 方法名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
@@ -560,7 +543,6 @@ vendor/dsdcr/tronweb/
 #### Hash
 
 **文件**: `src/Support/Hash.php`  
-**行数**: 49 行
 
 | 方法名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
@@ -571,7 +553,6 @@ vendor/dsdcr/tronweb/
 #### Keccak
 
 **文件**: `src/Support/Keccak.php`  
-**行数**: 311 行
 
 | 方法名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
@@ -586,7 +567,6 @@ vendor/dsdcr/tronweb/
 #### Message
 
 **文件**: `src/Support/Message.php`  
-**行数**: 165 行
 
 | 方法名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
@@ -599,7 +579,6 @@ vendor/dsdcr/tronweb/
 #### Secp
 
 **文件**: `src/Support/Secp.php`  
-**行数**: 20 行
 
 | 方法名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
@@ -608,7 +587,6 @@ vendor/dsdcr/tronweb/
 #### Secp256k1
 
 **文件**: `src/Support/Secp256k1.php`  
-**行数**: 178 行
 
 | 方法名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
@@ -622,7 +600,6 @@ vendor/dsdcr/tronweb/
 #### Signature
 
 **文件**: `src/Support/Signature.php`  
-**行数**: 159 行
 
 | 方法名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
@@ -640,7 +617,6 @@ vendor/dsdcr/tronweb/
 #### Bip39
 
 **文件**: `src/Support/Bip39.php`  
-**行数**: 277 行
 
 | 方法名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
@@ -656,7 +632,6 @@ vendor/dsdcr/tronweb/
 #### Ethabi
 
 **文件**: `src/Support/Ethabi.php`  
-**行数**: 103 行
 
 | 方法名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
@@ -673,7 +648,6 @@ vendor/dsdcr/tronweb/
 #### TransactionHelper
 
 **文件**: `src/Support/TransactionHelper.php`  
-**行数**: 186 行
 
 | 方法名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
@@ -691,7 +665,6 @@ vendor/dsdcr/tronweb/
 #### HdWallet
 
 **文件**: `src/Support/HdWallet.php`  
-**行数**: 178 行
 
 | 方法名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
@@ -748,9 +721,24 @@ $contract = $tronWeb->contract(
 // 调用只读方法
 $balance = $contract->balanceOf('TTX...');
 
-// 调用写入方法
-$tx = $contract->transfer('TTX...', 100);
-echo "交易ID: {$tx['txid']}\n";
+// 🚀 链式调用 - 写入方法（推荐）
+$result = $contract->transfer('TTX...', 100)->send([
+    'feeLimit' => 1000000,      // 1 TRX 手续费限制
+    'fromAddress' => 'your-address',
+    'callValue' => 0            // 附带 TRX 金额
+]);
+
+// 或在方法调用时传递 options
+$result = $contract->transfer('TTX...', 100, [
+    'feeLimit' => 1000000,
+    'fromAddress' => 'your-address'
+])->send();
+
+// 支持多种 options 合并
+$result = $contract->transfer('TTX...', 100, ['fromAddress' => 'addr'])
+                  ->send(['feeLimit' => 1000000]);
+
+echo "交易ID: {$result['txid']}, 结果: {$result['result']}\n";
 ```
 
 ### 8.3 资源管理
