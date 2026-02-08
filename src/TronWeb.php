@@ -3,221 +3,194 @@ declare(strict_types=1);
 
 namespace Dsdcr\TronWeb;
 
+use Dsdcr\TronWeb\Modules\Contract\ContractInstance;
 use Dsdcr\TronWeb\Provider\HttpProviderInterface;
 use Dsdcr\TronWeb\Support\TronUtils;
 use Dsdcr\TronWeb\Exception\TronException;
+use Dsdcr\TronWeb\Provider\TronManager;
 
 /**
- * TronWeb - Tron API 的主要入口点
- * 一个现代化的模块化SDK，用于与Tron区块链交互
+ * TronWeb - Tron区块链API主入口类
+ *
+ * 提供与Tron区块链交互的完整功能：
+ * - 账户管理和地址操作
+ * - 交易创建和广播
+ * - 智能合约交互
+ * - 区块和交易查询
+ * - 资源和代币管理
+ * - 网络治理功能
  *
  * @package Dsdcr\TronWeb
  */
 class TronWeb
 {
     /**
-     * @var array 配置数组
+     * Provider 管理器
+     *
+     * @var TronManager
      */
-    protected $config;
+    protected $manager;
 
     /**
-     * @var HttpProviderInterface 全节点提供者
-     */
-    protected $fullNode;
-
-    /**
-     * @var HttpProviderInterface|null 固态节点提供者
-     */
-    protected $solidityNode;
-
-    /**
-     * @var HttpProviderInterface|null 事件服务器提供者
-     */
-    protected $eventServer;
-
-    /**
-     * @var HttpProviderInterface|null 签名服务器提供者
-     */
-    protected $signServer;
-
-    /**
-     * @var string|null 私钥用于交易签名
+     * 私钥
+     *
+     * @var string|null
      */
     protected $privateKey;
 
     /**
-     * @var array|null 默认地址信息
+     * 默认地址信息
+     *
+     * @var array|null
      */
-    protected $defaultAddress;
+    protected $address;
 
     /**
-     * @var Modules\Trx TRX模块实例
+     * TRX模块实例
+     *
+     * @var Modules\Trx
      */
     public $trx;
 
     /**
-     * @var Modules\Contract 合约模块实例
+     * 合约模块实例
+     *
+     * @var Modules\Contract
      */
     public $contract;
 
     /**
-     * @var Modules\Account 账户模块实例
+     * 账户模块实例
+     *
+     * @var Modules\Account
      */
     public $account;
 
     /**
-     * @var TronUtils 工具类实例
+     * 工具类实例
+     *
+     * @var TronUtils
      */
     public $utils;
 
     /**
-     * @var Modules\Token 代币模块实例
+     * 代币模块实例
+     *
+     * @var Modules\Token
      */
     public $token;
 
     /**
-     * @var Modules\Resource 资源模块实例
+     * 资源模块实例
+     *
+     * @var Modules\Resource
      */
     public $resource;
 
     /**
-     * @var Modules\Network 网络模块实例
+     * 网络模块实例
+     *
+     * @var Modules\Network
      */
     public $network;
 
     /**
+     * 交易构建器实例
+     *
+     * @var Modules\TransactionBuilder
+     */
+    public $transactionBuilder;
+
+
+    /**
      * 创建新的TronWeb实例
      *
-     * @param array $config 配置选项
+     *
+     * @param HttpProviderInterface $fullNode 全节点Provider
+     * @param HttpProviderInterface|null $solidityNode 固态节点Provider（可选）
+     * @param HttpProviderInterface|null $eventServer 事件服务器Provider（可选）
+     * @param HttpProviderInterface|null $signServer 签名服务器Provider（可选）
+     * @param HttpProviderInterface|null $explorer 浏览器Provider（可选）
+     * @param string|null $privateKey 私钥（可选）
      * @throws TronException
+     *
+     * @example 简单初始化（推荐）
+     * $httpProvider = new HttpProvider('https://api.trongrid.io', [
+     *     'timeout' => 30000,
+     *     'headers' => [
+     *         'Content-Type' => 'application/json',
+     *         'TRON-PRO-API-KEY' => 'your_api_key'
+     *     ]
+     * ]);
+     * $tron = new TronWeb($httpProvider);
+     *
+     * @example 多个Provider
+     * $tron = new TronWeb(
+     *     $fullNodeProvider,
+     *     $solidityNodeProvider,
+     *     $eventServerProvider
+     * );
      */
-    public function __construct(array $config = [])
-    {
-        $this->config = array_merge([
-            'fullNode' => null,
-            'solidityNode' => null,
-            'eventServer' => null,
-            'signServer' => null,
-            'privateKey' => null,
-            'defaultAddress' => null,
-        ], $config);
-
-        $this->initializeProviders();
-        $this->initializeModules();
-        $this->initializeUtils();
-
-        // Set default private key and address if provided
-        if ($this->config['privateKey']) {
-            $this->setPrivateKey($this->config['privateKey']);
+    public function __construct(
+        HttpProviderInterface $fullNode,
+        ?HttpProviderInterface $solidityNode = null,
+        ?HttpProviderInterface $eventServer = null,
+        ?HttpProviderInterface $signServer = null,
+        ?HttpProviderInterface $explorer = null,
+        ?string $privateKey = null
+    ) {
+        if(!is_null($privateKey)) {
+            $this->setPrivateKey($privateKey);
+            $this->setAddress($this->FromPrivateKey($privateKey));
         }
+
+        $this->manager = new TronManager([
+            'fullNode'      => $fullNode,
+            'solidityNode'  => $solidityNode,
+            'eventServer'   => $eventServer,
+            'signServer'    => $signServer,
+            'explorer'       => $explorer
+        ]);
+
+        // 初始化所有模块
+        $this->utils = new \Dsdcr\TronWeb\Support\TronUtils();
+        $this->trx = new \Dsdcr\TronWeb\Modules\Trx($this);
+        $this->account = new \Dsdcr\TronWeb\Modules\Account($this);
+        $this->contract = new \Dsdcr\TronWeb\Modules\Contract($this);
+        $this->token = new \Dsdcr\TronWeb\Modules\Token($this);
+        $this->resource = new \Dsdcr\TronWeb\Modules\Resource($this);
+        $this->network = new \Dsdcr\TronWeb\Modules\Network($this);
+        $this->transactionBuilder = new \Dsdcr\TronWeb\Modules\TransactionBuilder($this);
     }
 
     /**
-     * 初始化提供者实例
+     * 设置 Provider 管理器
      *
-     * @throws TronException
+     * @param TronManager $manager
      */
-    protected function initializeProviders(): void
+    public function setManager(TronManager $manager): void
     {
-        $this->fullNode = $this->config['fullNode'];
-        $this->solidityNode = $this->config['solidityNode'];
-        $this->eventServer = $this->config['eventServer'];
-        $this->signServer = $this->config['signServer'];
-
-        if (!$this->fullNode) {
-            throw new TronException('Full node provider is required');
-        }
+        $this->manager = $manager;
     }
 
     /**
-     * 初始化模块
-     */
-    protected function initializeModules(): void
-    {
-        $this->trx = new Modules\Trx($this);
-        $this->contract = new Modules\Contract($this);
-        $this->account = new Modules\Account($this);
-        $this->token = new Modules\Token($this);
-        $this->resource = new Modules\Resource($this);
-        $this->network = new Modules\Network($this);
-    }
-
-    /**
-     * 初始化工具类
-     */
-    protected function initializeUtils(): void
-    {
-        $this->utils = new TronUtils();
-    }
-
-    /**
-     * 获取全节点提供者
+     * 获取 Provider 管理器
      *
-     * @return HttpProviderInterface
+     * @return TronManager
      */
-    public function getFullNode(): HttpProviderInterface
+    public function getManager(): TronManager
     {
-        return $this->fullNode;
-    }
-
-    /**
-     * 获取固态节点提供者
-     *
-     * @return HttpProviderInterface|null
-     */
-    public function getSolidityNode(): ?HttpProviderInterface
-    {
-        return $this->solidityNode;
-    }
-
-    /**
-     * 获取事件服务器提供者
-     *
-     * @return HttpProviderInterface|null
-     */
-    public function getEventServer(): ?HttpProviderInterface
-    {
-        return $this->eventServer;
-    }
-
-    /**
-     * 获取签名服务器提供者
-     *
-     * @return HttpProviderInterface|null
-     */
-    public function getSignServer(): ?HttpProviderInterface
-    {
-        return $this->signServer;
+        return $this->manager;
     }
 
     /**
      * 设置用于交易签名的私钥
-     * 如果没有提供 defaultAddress，会自动从私钥推导出地址
      *
      * @param string $privateKey 私钥
-     * @param bool $autoDeriveAddress 是否自动从私钥推导出地址
-     * @return self
-     * @throws TronException
      */
-    public function setPrivateKey(string $privateKey, bool $autoDeriveAddress = true): self
+    public function setPrivateKey(string $privateKey): void
     {
         $this->privateKey = $privateKey;
-
-        // 如果没有设置 defaultAddress，自动从私钥推导出地址
-        if ($autoDeriveAddress && $this->defaultAddress === null) {
-            // 使用 Account 模块的现有方法从私钥恢复地址
-            $address = $this->account->recoverAddressFromPrivateKey($privateKey);
-
-            // 将地址转换为十六进制格式
-            $addressHex = TronUtils::addressToHex($address);
-
-            $this->defaultAddress = [
-                'hex' => $addressHex,
-                'base58' => $address
-            ];
-        }
-
-        return $this;
     }
 
     /**
@@ -234,17 +207,17 @@ class TronWeb
      * 设置操作用的默认地址
      *
      * @param string $address 地址
-     * @return self
      * @throws TronException
      */
-    public function setDefaultAddress(string $address): self
+    public function setAddress(string $address): void
     {
-        $addressHex = TronUtils::addressToHex($address);
-        $this->defaultAddress = [
-            'hex' => $addressHex,
-            'base58' => TronUtils::hexToAddress($addressHex)
+        $_toHex = $this->toHex($address);
+        $_fromHex = $this->fromHex($address);
+
+        $this->address = [
+            'hex'       => $_toHex,
+            'base58'    => $_fromHex
         ];
-        return $this;
     }
 
     /**
@@ -252,56 +225,198 @@ class TronWeb
      *
      * @return array|null
      */
-    public function getDefaultAddress(): ?array
+    public function getAddress(): ?array
     {
-        return $this->defaultAddress;
+        return $this->address;
     }
 
     /**
-     * 向Tron网络发起请求
+     * 获取 Provider 列表
+     *
+     * @return array
+     */
+    public function providers(): array
+    {
+        return $this->manager->getProviders();
+    }
+
+    /**
+     * 检查连接状态
+     *
+     * @return array
+     */
+    public function isConnected(): array
+    {
+        return $this->manager->isConnected();
+    }
+
+    /**
+     * 将地址转换为十六进制
+     *
+     * @param string $address
+     * @return string
+     */
+    public function toHex(string $address): string
+    {
+        return \Dsdcr\TronWeb\Support\TronUtils::toHex($address);
+    }
+
+    /**
+     * 将十六进制转换为地址
+     *
+     * @param string $addressHex
+     * @return string
+     */
+    public function fromHex(string $addressHex): string
+    {
+        return \Dsdcr\TronWeb\Support\TronUtils::fromHex($addressHex);
+    }
+
+    /**
+     * 转换科学记数法字符串为整数
+     *
+     * @param mixed $sciNotation
+     * @return string
+     */
+    public function toDecimal(mixed $sciNotation): string
+    {
+        return \Dsdcr\TronWeb\Support\TronUtils::toDecimal($sciNotation);
+    }
+
+    /**
+     * 验证Tron地址格式
+     *
+     * @param string $address
+     * @return string
+     */
+    public function isAddress(string $address): bool
+    {
+        return \Dsdcr\TronWeb\Support\TronUtils::isAddress($address);
+    }
+
+    /**
+     * 从私钥获取地址
+     *
+     * @param string $privateKey
+     * @return string
+     */
+    public function fromPrivateKey(string $privateKey): string
+    {
+        $privateKey = (!is_null($privateKey) ? $privateKey : $this->getPrivateKey());
+        return \Dsdcr\TronWeb\Support\TronUtils::fromPrivateKey($privateKey);
+    }
+
+    /**
+     *
+     * 通过助记词生成账户（BIP39/BIP44标准）
+     *
+     * @param string|null $mnemonic
+     * @param string $path
+     * @param string $passphrase
+     * @param int $wordCount
+     * @return array
+     */
+    public function fromMnemonic(?string $mnemonic = null, string $path = "m/44'/195'/0'/0/0", string $passphrase = '', int $wordCount= 12): array
+    {
+        return \Dsdcr\TronWeb\Support\HdWallet::fromMnemonic($mnemonic, $path, $passphrase,$wordCount);
+    }
+
+    /**
+     *
+     * 生成新的 TRON 地址、私钥、公钥、助记词（BIP39/BIP44标准）
+     *
+     * @param int $wordCount
+     * @param string $passphrase
+     * @param string $path
+     * @return array
+     */
+    public function createAccount(int $wordCount= 12, string $passphrase = '', string $path = "m/44'/195'/0'/0/0"): array
+    {
+        return \Dsdcr\TronWeb\Support\HdWallet::createAccount( $wordCount, $passphrase,"m/44'/195'/0'/0/0");
+    }
+
+    /**
+     * 将SUN转换为TRX
+     *
+     * @param int $sun SUN数量
+     * @return float TRX数量
+     */
+    public function fromSun(int $sun): float
+    {
+        return \Dsdcr\TronWeb\Support\TronUtils::fromSun($sun);
+    }
+
+    /**
+     * 获取TRC20代币的精度（小数位数）
+     *
+     * @param string $tokenAddress 代币合约地址
+     * @return int 精度（小数位数）
+     *
+     * @example
+     * $decimals = $tronWeb->getTokenDecimals('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
+     * // 返回: 6
+     */
+    public function getTokenDecimals(string $tokenAddress): int
+    {
+        try {
+            $trc20Abi = [
+                [
+                    'constant' => true,
+                    'inputs' => [],
+                    'name' => 'decimals',
+                    'outputs' => [['name' => '', 'type' => 'uint8']],
+                    'payable' => false,
+                    'stateMutability' => 'view',
+                    'type' => 'function'
+                ]
+            ];
+
+            $contract = $this->contract($trc20Abi)->at($tokenAddress);
+            $result = $contract->decimals();
+
+            if (is_array($result) && isset($result[0])) {
+                return (int)$result[0];
+            }
+
+            return 6; // 默认精度
+        } catch (\Exception $e) {
+            return 6; // 出错时返回默认值
+        }
+    }
+
+    /**
+     * Contract 模块
+     *
+     * @param array|string|null $abi ABI接口定义（可选）
+     * @param string|null $address 合约地址（可选）
+     * @return Modules\Contract\ContractInstance
+     *
+     * @example TypeScript风格链式调用
+     * $contract = $tronWeb->contract()->at('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
+     * $balance = $contract->balanceOf('T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb');
+     *
+     * @example 直接创建带地址的合约
+     * $contract = $tronWeb->contract([], 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
+     */
+    public function contract($abi = [], ?string $address = null): Modules\Contract\ContractInstance
+    {
+        return new ContractInstance($this, $abi, $address);
+    }
+
+    /**
+     * 基础查询方法，自动路由到正确的节点
+     *
+     * 代理方法，委托给 TronManager 处理
      *
      * @param string $endpoint 端点路径
      * @param array $params 请求参数
-     * @param string $providerType 提供者类型
+     * @param string $method 请求方法
      * @return array
      * @throws TronException
      */
-    public function request(string $endpoint, array $params = [], string $providerType = 'fullNode'): array
+    public function request(string $endpoint, array $params = [], string $method = 'post'): array
     {
-        $provider = $this->getProviderByType($providerType);
-
-        if (!$provider) {
-            throw new TronException("Provider {$providerType} not configured");
-        }
-
-        return $provider->request($endpoint, $params);
+        return $this->manager->request($endpoint, $params, $method);
     }
 
-    /**
-     * 根据类型获取提供者
-     *
-     * @param string $type 提供者类型
-     * @return HttpProviderInterface|null
-     */
-    protected function getProviderByType(string $type): ?HttpProviderInterface
-    {
-        return match ($type) {
-            'solidityNode' => $this->solidityNode,
-            'eventServer' => $this->eventServer,
-            'signServer' => $this->signServer,
-            default => $this->fullNode,
-        };
-    }
-
-    /**
-     * 检查提供者是否配置且有效
-     *
-     * @param string $providerType 提供者类型
-     * @return bool
-     */
-    public function isProviderConfigured(string $providerType): bool
-    {
-        $provider = $this->getProviderByType($providerType);
-        return $provider !== null;
-    }
 }

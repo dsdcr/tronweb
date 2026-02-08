@@ -8,7 +8,6 @@ use Dsdcr\TronWeb\Exception\TronException;
 
 /**
  * TRON消息签名工具类
- * 提供与TypeScript TronWeb兼容的消息签名和验证功能
  *
  * @package Dsdcr\TronWeb\Support
  */
@@ -62,7 +61,6 @@ class Message
         $secp = new Secp256k1();
         $signature = $secp->sign($messageHash, $privateKey);
 
-        // 转换为TypeScript兼容的签名格式
         $r = str_pad($signature->getR(), 64, '0', STR_PAD_LEFT);
         $s = str_pad($signature->getS(), 64, '0', STR_PAD_LEFT);
         $v = dechex($signature->getRecoveryParam() + 27);
@@ -116,7 +114,7 @@ class Message
         // 从公钥生成地址（使用现有的Account模块方法逻辑）
         $secp = new Secp256k1();
         $addressHex = $secp->getAddressFromPublicKey($publicKey);
-        return TronUtils::hexToAddress($addressHex);
+        return TronUtils::fromHex($addressHex);
     }
 
     /**
@@ -139,7 +137,7 @@ class Message
     }
 
     /**
-     * 使用TRON特定的方法验证签名（兼容TypeScript版本）
+     * 使用TRON特定的方法验证签名
      *
      * @param string $messageHex 十六进制格式的消息
      * @param string $address 地址（base58格式）

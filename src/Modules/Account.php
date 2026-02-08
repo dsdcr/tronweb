@@ -9,34 +9,73 @@ use Dsdcr\TronWeb\Support\TronUtils;
 use Dsdcr\TronWeb\Entities\TronAddress;
 
 /**
- * 账户模块 - 用于地址管理和生成
+ * Account模块 - Tron网络账户管理和地址操作的核心模块
+ *
+ * 提供完整的账户管理功能，包括：
+ * - 新账户生成（随机、密钥对）
+ * - 地址格式转换（Base58 ↔ Hex）
+ * - 账户信息查询（余额、资源、交易历史）
+ * - 账户注册和名称管理
+ * - 批量余额查询
+ * - 助记词账户生成（BIP39/BIP44标准）
+ *
+ * 主要特性：
+ * - 完整的地址生命周期管理
+ * - 支持多种账户创建方式
+ * - 自动格式验证和转换
+ * - 批量操作支持
+ * - 符合BIP39/BIP44标准的钱包功能
  *
  * @package Dsdcr\TronWeb\Modules
+ * @since 1.0.0
  */
 class Account extends BaseModule
 {
-    const ADDRESS_SIZE = 34;           // 地址长度
-    const ADDRESS_PREFIX = "41";       // 地址前缀
-    const ADDRESS_PREFIX_BYTE = 0x41;  // 地址前缀字节
+    /**
+     * Tron地址标准长度
+     * Base58格式地址固定34个字符
+     */
+    const ADDRESS_SIZE = 34;
 
     /**
-     * 生成新的Tron账户
+     * Hex地址前缀
+     * Tron地址十六进制格式以0x41开头
+     */
+    const ADDRESS_PREFIX = "41";
+
+    /**
+     * 地址前缀字节值
+     * 0x41 对应ASCII字符'A'
+     */
+    const ADDRESS_PREFIX_BYTE = 0x41;
+
+    /**
+     * 生成新的随机账户
      *
-     * @return TronAddress
-     * @throws TronException
+     * 使用安全的椭圆曲线加密算法生成新的密钥对。
+     * 这是创建新Tron账户的标准方式。
+     *
+     * @return TronAddress 账户信息对象，包含：
+     *                    - private_key: 私钥（64字符十六进制）
+     *                    - public_key: 公钥（未压缩格式）
+     *                    - address_hex: 十六进制地址（42字符）
+     *                    - address_base58: Base58地址（34字符）
+     *
+     * @throws TronException 当加密库初始化失败时抛出
+     *
+     * @example
+     * // 创建新账户
+     * $account = $tronWeb->account->create();
+     *
+     * echo "新地址: " . $account->getAddress();
+     * echo "私钥: " . $account->getPrivateKey();
+     *
+     * // 后续充值后即可使用
+     *
+     * @see createWithPrivateKey() 通过私钥创建账户
+     * @see generateAccountWithMnemonic() 通过助记词创建账户
      */
     public function create(): TronAddress
-    {
-        return $this->generateAddress();
-    }
-
-    /**
-     * 生成包含私钥/公钥对的新地址
-     *
-     * @return TronAddress
-     * @throws TronException
-     */
-    public function generateAddress(): TronAddress
     {
         $ec = new \Elliptic\EC('secp256k1');
         $key = $ec->genKeyPair();
@@ -44,9 +83,9 @@ class Account extends BaseModule
         $pubKeyHex = $priv->getPublic(false, "hex");
 
         $pubKeyBin = hex2bin($pubKeyHex);
-        $addressHex = $this->getAddressHex($pubKeyBin);
+        $addressHex = TronUtils::getAddressHex($pubKeyBin);
         $addressBin = hex2bin($addressHex);
-        $addressBase58 = $this->getBase58CheckAddress($addressBin);
+        $addressBase58 = TronUtils::getBase58CheckAddress($addressBin);
 
         return new TronAddress([
             'private_key' => $priv->getPrivate('hex'),
@@ -57,33 +96,95 @@ class Account extends BaseModule
     }
 
     /**
-     * 获取账户信息
+     * 查询账户详细信息
      *
-     * @param string|null $address 地址
-     * @return array 账户信息
-     * @throws TronException
+     * 从固态节点获取指定账户的完整信息。
+     * 这是最常用的账户查询方法。
+     *
+     * @param string|null $address 要查询的地址（Base58格式，可选）
+     *                            如不提供则使用当前账户地址
+     *
+     * @return array 账户信息，包含：
+     *               - address: 地址
+     *               - balance: 余额（SUN单位）
+     *               - assetV2: 代币余额映射
+     *               - [其他账户属性字段]
+     *
+     * @throws TronException 当地址格式无效或查询失败时抛出
+     *
+     * @example
+     * // 查询当前账户信息
+     * $account = $tronWeb->account->getAccount();
+     *
+     * echo "余额: " . $account['balance'] . " SUN";
+     * echo "代币: " . json_encode($account['assetV2'] ?? []);
+     *
+     * // 查询指定地址
+     * $account = $tronWeb->account->getAccount('TXYZ...');
+     *
+     * @see getAccountresource() 获取账户资源信息
+     * @see validateAddress() 验证地址有效性
      */
-    public function getInfo(?string $address = null): array
+    public function getAccount(?string $address = null): array
     {
-        $addressHex = $address ? TronUtils::addressToHex($address) : $this->getDefaultAddress()['hex'];
-
+        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
         return $this->request('walletsolidity/getaccount', [
             'address' => $addressHex
         ]);
     }
 
     /**
-     * 验证Tron地址
+     * 获取指定地址的账户信息
      *
-     * @param string $address 地址
-     * @param bool $hex 地址是否为十六进制格式
-     * @return array 验证结果
-     * @throws TronException
+     * 该方法通过Tron区块链API查询指定地址的账户详细信息，包括：
+     * - 账户余额（TRX和代币余额）
+     * - 账户创建时间
+     * - 账户资源信息（带宽、能量等）
+     * - 账户权限设置
+     * - 关联的智能合约信息
+     *
+     * @param string $address 要查询的Tron账户地址（Base58格式）
+     * @return array 返回账户信息数组，包含账户的基本信息和资产详情
+     * @throws TronException 当查询失败或地址格式无效时抛出
      */
-    public function validate(string $address, bool $hex = false): array
+    public function getaccounts(string $address): array
+    {
+        return $this->request("v1/accounts/{$address}", [], 'get');
+    }
+
+    /**
+     * 验证Tron地址的有效性
+     *
+     * 通过区块链API验证地址格式和有效性。
+     * 与本地验证（TronUtils::isAddress）不同，
+     * 此方法会向节点查询地址是否真实存在。
+     *
+     * @param string $address 要验证的地址
+     *                       支持Base58格式或Hex格式
+     * @param bool $hex 地址是否为十六进制格式（可选，默认false）
+     *                  true: 输入为Hex格式
+     *                  false: 输入为Base58格式
+     *
+     * @return array 验证结果，包含：
+     *               - result: 验证是否通过（true/false）
+     *               - [其他验证相关信息]
+     *
+     * @throws TronException 当网络请求失败时抛出
+     *
+     * @example
+     * // 验证Base58地址
+     * $result = $tronWeb->account->validateAddress('TXYZ...');
+     * echo "地址有效: " . ($result['result'] ? '是' : '否');
+     *
+     * // 验证Hex地址
+     * $result = $tronWeb->account->validateAddress('4100...', true);
+     *
+     * @see \Dsdcr\TronWeb\Support\TronUtils::isAddress() 本地验证
+     */
+    public function validateAddress(string $address, bool $hex = false): array
     {
         if ($hex) {
-            $address = TronUtils::addressToHex($address);
+            $address = TronUtils::toHex($address);
         }
 
         return $this->request('wallet/validateaddress', [
@@ -92,71 +193,38 @@ class Account extends BaseModule
     }
 
     /**
-     * 本地验证地址
+     * 查询账户资源详情
      *
-     * @param string $address 地址
-     * @return bool 是否有效
-     */
-    public function isValidAddress(string $address): bool
-    {
-        return TronUtils::isValidTronAddress($address);
-    }
-
-    /**
-     * 将地址转换为十六进制格式
+     * 获取账户的带宽和能量资源信息。
+     * 包括已使用量、剩余量、限制等详细数据。
      *
-     * @param string $address 地址
-     * @return string 十六进制地址
-     * @throws TronException
-     */
-    public function toHex(string $address): string
-    {
-        return TronUtils::addressToHex($address);
-    }
-
-    /**
-     * 将十六进制地址转换为base58格式
+     * @param string|null $address 要查询的地址（Base58格式，可选）
+     *                            如不提供则使用当前账户地址
      *
-     * @param string $hexAddress 十六进制地址
-     * @return string base58格式地址
-     */
-    public function toBase58(string $hexAddress): string
-    {
-        return TronUtils::hexToAddress($hexAddress);
-    }
-
-    /**
-     * 从公钥获取十六进制地址
+     * @return array 资源信息，包含：
+     *               - EnergyLimit: 能量上限
+     *               - EnergyUsed: 已用能量
+     *               - NetLimit: 带宽上限
+     *               - NetUsed: 已用带宽
+     *               - freeNetLimit: 免费带宽上限
+     *               - freeNetUsed: 免费带宽已用量
+     *               - [其他资源相关字段]
      *
-     * @param string $pubKeyBin 公钥二进制数据
-     * @return string 十六进制地址
-     */
-    protected function getAddressHex(string $pubKeyBin): string
-    {
-        return TronUtils::getAddressHex($pubKeyBin);
-    }
-
-    /**
-     * 从二进制地址获取base58校验地址
+     * @throws TronException 当地址格式无效或查询失败时抛出
      *
-     * @param string $addressBin 二进制地址数据
-     * @return string base58校验地址
-     */
-    protected function getBase58CheckAddress(string $addressBin): string
-    {
-        return TronUtils::getBase58CheckAddress($addressBin);
-    }
-
-    /**
-     * 获取账户资源（包括带宽、能量等）
+     * @example
+     * // 获取资源信息
+     * $resource = $tronWeb->account->getAccountresource();
      *
-     * @param string|null $address 地址
-     * @return array 资源信息
-     * @throws TronException
+     * echo "能量上限: " . $resource['EnergyLimit'];
+     * echo "已用能量: " . $resource['EnergyUsed'];
+     * echo "能量剩余: " . ($resource['EnergyLimit'] - $resource['EnergyUsed']);
+     *
+     * @see getAccount() 获取账户基本信息
      */
-    public function getResources(?string $address = null): array
+    public function getAccountresource(?string $address = null): array
     {
-        $addressHex = $address ? TronUtils::addressToHex($address) : $this->getDefaultAddress()['hex'];
+        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
         return $this->request('wallet/getaccountresource', [
             'address' => $addressHex
@@ -164,37 +232,36 @@ class Account extends BaseModule
     }
 
     /**
-     * 获取账户带宽信息
+     * 查询指定代币的余额
      *
-     * @param string|null $address 地址
-     * @return array 带宽信息
-     * @throws TronException
-     */
-    public function getBandwidth(?string $address = null): array
-    {
-        $resources = $this->getResources($address);
-
-        return [
-            'free_bandwidth' => $resources['free_bandwidth'] ?? 0,
-            'bandwidth_limit' => $resources['bandwidth_limit'] ?? 0,
-            'bandwidth_used' => $resources['bandwidth_used'] ?? 0,
-            'net_bandwidth_used' => $resources['net_bandwidth_used'] ?? 0,
-            'net_bandwidth_limit' => $resources['net_bandwidth_limit'] ?? 0,
-        ];
-    }
-
-    /**
-     * 获取地址的代币余额
+     * 获取账户持有的TRC10代币数量。
      *
      * @param int $tokenId 代币ID
-     * @param string|null $address 地址
-     * @param bool $fromTron 是否从SUN转换为TRX
+     *                    TRC10代币的唯一数字标识
+     *                    例如：1000001
+     * @param string|null $address 要查询的地址（Base58格式，可选）
+     *                            如不提供则使用当前账户地址
+     * @param bool $fromTron 是否从SUN单位转换为代币精度单位（可选，默认false）
+     *                      注意：大多数TRC10代币精度为6，但不是所有代币都如此
+     *
      * @return float 代币余额
-     * @throws TronException
+     *              如果账户不持有该代币，返回0.0
+     *
+     * @throws TronException 当地址格式无效或查询失败时抛出
+     *
+     * @example
+     * // 查询代币余额
+     * $balance = $tronWeb->account->getTokenBalance(1000001);
+     * echo "代币余额: " . $balance;
+     *
+     * // 查询指定地址的代币余额
+     * $balance = $tronWeb->account->getTokenBalance(1000001, 'TXYZ...');
+     *
+     * @see getAccount() 获取所有代币余额
      */
     public function getTokenBalance(int $tokenId, ?string $address = null, bool $fromTron = false): float
     {
-        $addressHex = $address ? TronUtils::addressToHex($address) : $this->getDefaultAddress()['hex'];
+        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
         $account = $this->request('walletsolidity/getaccount', [
             'address' => $addressHex
@@ -209,18 +276,40 @@ class Account extends BaseModule
     }
 
     /**
-     * 获取与地址相关的交易
+     * 查询账户的交易历史
      *
-     * @param string $address 地址
-     * @param string $direction 方向: 'to', 'from', 或 'all'
-     * @param int $limit 限制数量
-     * @param int $offset 偏移量
-     * @return array 交易列表
-     * @throws TronException
+     * 获取与指定地址相关的所有交易记录。
+     * 支持按交易方向（转入/转出）筛选。
+     *
+     * @param string $address 地址（Base58格式）
+     *                       要查询交易历史的账户地址
+     * @param string $direction 交易方向筛选（可选，默认'all'）
+     *                         - 'to': 只返回转入交易
+     *                         - 'from': 只返回转出交易
+     *                         - 'all': 返回所有交易
+     * @param int $limit 返回数量限制（可选，默认30，范围1-100）
+     * @param int $offset 分页偏移量（可选，默认0）
+     *
+     * @return array 交易列表数组
+     *               每个交易包含时间戳、金额、对方地址等信息
+     *
+     * @throws TronException 当参数无效或查询失败时抛出
+     *
+     * @example
+     * // 获取所有交易
+     * $transactions = $tronWeb->account->getTransactions('TXYZ...');
+     *
+     * // 获取最近的10笔转入交易
+     * $transactions = $tronWeb->account->getTransactions('TXYZ...', 'to', 10);
+     *
+     * // 分页查询
+     * $page2 = $tronWeb->account->getTransactions('TXYZ...', 'all', 30, 30);
+     *
+     * @see \Dsdcr\TronWeb\Modules\Trx::getTransaction() 通过交易ID查询详情
      */
     public function getTransactions(string $address, string $direction = 'all', int $limit = 30, int $offset = 0): array
     {
-        $addressHex = TronUtils::addressToHex($address);
+        $addressHex = TronUtils::toHex($address);
 
         switch ($direction) {
             case 'to':
@@ -248,41 +337,40 @@ class Account extends BaseModule
         }
     }
 
-    /**
-     * getInfo的别名（向后兼容）
-     *
-     * @param string|null $address 地址
-     * @return array 账户信息
-     * @throws TronException
-     */
-    public function getAccount(?string $address = null): array
-    {
-        return $this->getInfo($address);
-    }
 
     /**
-     * validate的别名（向后兼容）
+     * 更新账户名称
      *
-     * @param string $address 地址
-     * @return array 验证结果
-     * @throws TronException
-     */
-    public function validateAddress(string $address): array
-    {
-        return $this->validate($address);
-    }
-
-    /**
-     * 更改账户名称
+     * 设置或修改账户的可读名称。
+     * 账户名称在区块链上公开可见。
      *
-     * @param string $accountName 账户名称
-     * @param string|null $address 地址
-     * @return array 更改结果
-     * @throws TronException
+     * @param string $accountName 新的账户名称
+     *                           UTF-8字符串，最长32字节
+     *                           可以包含字母、数字、空格等
+     * @param string|null $address 要修改的地址（Base58格式，可选）
+     *                            如不提供则使用当前账户地址
+     *
+     * @return array 操作结果，包含：
+     *               - transaction: 交易详情
+     *               - [其他返回字段]
+     *
+     * @throws TronException 当以下情况时抛出：
+     *                      - 名称格式无效或过长
+     *                      - 地址格式无效
+     *                      - 账户余额不足支付交易费用
+     *
+     * @example
+     * // 修改当前账户名称
+     * $result = $tronWeb->account->changeName('My Tron Wallet');
+     *
+     * // 修改指定账户名称
+     * $result = $tronWeb->account->changeName('Token Holder', 'TXYZ...');
+     *
+     * @see getAccount() 验证名称是否已更新
      */
     public function changeName(string $accountName, ?string $address = null): array
     {
-        $addressHex = $address ? TronUtils::addressToHex($address) : $this->getDefaultAddress()['hex'];
+        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
         return $this->request('wallet/updateaccount', [
             'account_name' => TronUtils::toUtf8($accountName),
@@ -291,17 +379,41 @@ class Account extends BaseModule
     }
 
     /**
-     * 注册新账户
+     * 创建新账户
      *
-     * @param string $newAccountAddress 新账户地址
-     * @param string|null $address 当前账户地址
-     * @return array 注册结果
-     * @throws TronException
+     * 为已存在的基础账户创建一个关联的新账户。
+     * 新账户需要一个已激活的账户作为创建者。
+     *
+     * 注意：在Tron网络中，新账户需要由已激活账户创建。
+     *
+     * @param string $newAccountAddress 新账户地址（Base58格式）
+     *                                 要创建的新账户地址
+     *                                 该地址必须是未激活的新地址
+     * @param string|null $address 创建者地址（Base58格式，可选）
+     *                            如不提供则使用当前账户地址
+     *                            创建者账户必须已激活
+     *
+     * @return array 创建结果，包含：
+     *               - transaction: 交易详情
+     *               - [其他返回字段]
+     *
+     * @throws TronException 当以下情况时抛出：
+     *                      - 地址格式无效
+     *                      - 新账户地址已被使用
+     *                      - 创建者账户余额不足
+     *
+     * @example
+     * // 创建新账户
+     * $result = $tronWeb->account->register('TABC...');
+     *
+     * echo "新账户创建成功: " . $result['transaction']['txID'];
+     *
+     * @see create() 创建全新随机账户
      */
     public function register(string $newAccountAddress, ?string $address = null): array
     {
-        $addressHex = $address ? TronUtils::addressToHex($address) : $this->getDefaultAddress()['hex'];
-        $newAccountHex = TronUtils::addressToHex($newAccountAddress);
+        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
+        $newAccountHex = TronUtils::toHex($newAccountAddress);
 
         return $this->request('wallet/createaccount', [
             'owner_address' => $addressHex,
@@ -310,48 +422,30 @@ class Account extends BaseModule
     }
 
     /**
-     * changeName的别名（向后兼容）
+     * 通过私钥创建账户对象
      *
-     * @param string $address 地址
-     * @param string $accountName 账户名称
-     * @return array 更改结果
-     * @throws TronException
-     */
-    public function changeAccountName(string $address, string $accountName): array
-    {
-        return $this->changeName($accountName, $address);
-    }
-
-    /**
-     * register的别名（向后兼容）
+     * 从已知的私钥生成对应的账户信息。
+     * 用于从备份恢复账户。
      *
-     * @param string $address 当前账户地址
-     * @param string $newAccountAddress 新账户地址
-     * @return array 注册结果
-     * @throws TronException
-     */
-    public function registerAccount(string $address, string $newAccountAddress): array
-    {
-        return $this->register($newAccountAddress, $address);
-    }
-
-    /**
-     * 简化的地址验证
+     * @param string $privateKey 私钥（64字符十六进制字符串）
+     *                          必须是有效的secp256k1私钥
+     *                          格式：'abc123...'
      *
-     * @param string $address 地址
-     * @return bool 是否有效
-     */
-    public function isAddress(string $address): bool
-    {
-        return $this->isValidAddress($address);
-    }
-
-    /**
-     * 从私钥创建地址
+     * @return TronAddress 账户信息对象，包含：
+     *                    - private_key: 输入的私钥
+     *                    - public_key: 对应的公钥
+     *                    - address_hex: 十六进制地址
+     *                    - address_base58: Base58地址
      *
-     * @param string $privateKey 私钥
-     * @return TronAddress Tron地址对象
-     * @throws TronException
+     * @throws TronException 当私钥格式无效时抛出
+     *
+     * @example
+     * // 从私钥恢复账户
+     * $account = $tronWeb->account->createWithPrivateKey('your_private_key_here...');
+     *
+     * echo "恢复的地址: " . $account->getAddress();
+     *
+     * @see create() 创建全新随机账户
      */
     public function createWithPrivateKey(string $privateKey): TronAddress
     {
@@ -360,9 +454,9 @@ class Account extends BaseModule
         $pubKeyHex = $key->getPublic(false, "hex");
 
         $pubKeyBin = hex2bin($pubKeyHex);
-        $addressHex = $this->getAddressHex($pubKeyBin);
+        $addressHex = TronUtils::getAddressHex($pubKeyBin);
         $addressBin = hex2bin($addressHex);
-        $addressBase58 = $this->getBase58CheckAddress($addressBin);
+        $addressBase58 = TronUtils::getBase58CheckAddress($addressBin);
 
         return new TronAddress([
             'private_key' => $privateKey,
@@ -373,312 +467,51 @@ class Account extends BaseModule
     }
 
     /**
-     * 将私钥转换为公钥
+     * 批量查询账户余额
      *
-     * @param string $privateKey 私钥
-     * @return string 公钥
-     * @throws TronException
-     */
-    public function privateKeyToPublicKey(string $privateKey): string
-    {
-        try {
-            if (!$this->isValidPrivateKey($privateKey)) {
-                throw new TronException('Invalid private key format');
-            }
-
-            $ec = new \Elliptic\EC('secp256k1');
-            $key = $ec->keyFromPrivate($privateKey, 'hex');
-            $publicKey = $key->getPublic(false, 'hex'); // false表示未压缩格式
-
-            if (substr($publicKey, 0, 2) !== '04') {
-                throw new TronException('Invalid public key format: not uncompressed');
-            }
-
-            return substr($publicKey, 2);
-
-        } catch (Exception $e) {
-            throw new TronException('Failed to generate public key: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * 将公钥转换为地址
+     * 一次性查询多个地址的TRX余额。
+     * 适用于钱包应用或批量监控场景。
      *
-     * @param string $publicKey 公钥
-     * @return string 地址
-     * @throws TronException
-     */
-    public function publicKeyToAddress(string $publicKey): string
-    {
-        try {
-            if (!$this->isValidPublicKey($publicKey)) {
-                throw new TronException('Invalid public key format');
-            }
-
-            $publicKeyBin = hex2bin('04' . $publicKey);
-
-            $hash = \Dsdcr\TronWeb\Support\Keccak::hash($publicKeyBin, 256);
-
-            $addressHex = '41' . substr($hash, 24);
-            $addressBin = hex2bin($addressHex);
-
-            return TronUtils::getBase58CheckAddress($addressBin);
-
-        } catch (Exception $e) {
-            throw new TronException('Failed to generate address from public key: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * 验证私钥格式
+     * @param array $accounts 要查询的地址数组
+     *                       每个元素为Base58格式地址字符串
+     *                       最大支持20个地址
+     * @param bool $fromTron 是否转换为TRX单位（可选，默认false）
+     *                      true: 返回TRX单位（1 TRX = 1,000,000 SUN）
+     *                      false: 返回SUN单位
+     * @param bool $validate 是否验证地址格式（可选，默认false）
+     *                      true: 查询前验证每个地址
+     *                      false: 不验证，直接查询
      *
-     * @param string $privateKey 私钥
-     * @return bool 是否有效
-     */
-    public function isValidPrivateKey(string $privateKey): bool
-    {
-        if (!is_string($privateKey) || strlen($privateKey) !== 64) {
-            return false;
-        }
-        return preg_match('/^[0-9a-f]{64}$/i', $privateKey) === 1;
-    }
-
-    /**
-     * 验证公钥格式
+     * @return array 余额结果数组，每个元素包含：
+     *               - address: 查询的地址
+     *               - balance: 余额数值
+     *               - success: 是否查询成功
+     *               - error: 错误信息（如果失败）
      *
-     * @param string $publicKey 公钥
-     * @return bool 是否有效
-     */
-    public function isValidPublicKey(string $publicKey): bool
-    {
-        if (!is_string($publicKey) || !in_array(strlen($publicKey), [128, 130])) {
-            return false;
-        }
-        return preg_match('/^[0-9a-f]{128,130}$/i', $publicKey) === 1;
-    }
-
-    /**
-     * 从私钥恢复地址
+     * @throws TronException 当以下情况时抛出：
+     *                      - 地址数量超过20个
+     *                      - 地址格式无效（当validate=true时）
      *
-     * @param string $privateKey 私钥
-     * @return string 恢复的地址
-     * @throws TronException
-     */
-    public function recoverAddressFromPrivateKey(string $privateKey): string
-    {
-        if (!$this->isValidPrivateKey($privateKey)) {
-            throw new TronException('Invalid private key format');
-        }
-
-        $publicKey = $this->privateKeyToPublicKey($privateKey);
-        return $this->publicKeyToAddress($publicKey);
-    }
-
-    /**
-     * 生成随机账户（generateAddress的别名）
+     * @example
+     * // 批量查询余额
+     * $balances = $tronWeb->account->getBalances([
+     *     'TXYZ...',
+     *     'TABC...',
+     *     'TDEF...'
+     * ]);
      *
-     * @return TronAddress
-     * @throws TronException
-     */
-    public function generateRandom(): TronAddress
-    {
-        return $this->generateAddress();
-    }
-
-    /**
-     * 生成账户（generateAddress的别名）
+     * foreach ($balances as $item) {
+     *     echo "地址: {$item['address']} - 余额: {$item['balance']} SUN";
+     * }
      *
-     * @return TronAddress
-     * @throws TronException
-     */
-    public function generateAccount(): TronAddress
-    {
-        return $this->generateAddress();
-    }
-
-    /**
-     * 生成助记词短语（BIP39标准）
+     * // 转换为TRX单位并验证地址
+     * $balances = $tronWeb->account->getBalances(
+     *     ['TXYZ...', 'TABC...'],
+     *     true,  // 转换为TRX
+     *     true   // 验证地址
+     * );
      *
-     * @param int $wordCount 单词数量（12, 15, 18, 21, 24）
-     * @return string 助记词
-     * @throws TronException
-     */
-    public function generateMnemonic(int $wordCount = 12): string
-    {
-        try {
-            return \Dsdcr\TronWeb\Support\Bip39::generateMnemonic($wordCount);
-        } catch (Exception $e) {
-            throw new TronException('Failed to generate mnemonic: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * 从助记词生成账户（BIP39/BIP44标准）
-     *
-     * @param string|null $mnemonic 助记词短语（如果为null，则生成新的）
-     * @param string $path BIP44衍生路径
-     * @param string $passphrase 种子生成的密码短语
-     * @return array 账户信息
-     * @throws TronException
-     */
-    public function generateAccountWithMnemonic(
-        ?string $mnemonic = null,
-        string $path = "m/44'/195'/0'/0/0",
-        string $passphrase = ''
-    ): array {
-        try {
-            $mnemonic = $mnemonic ?? $this->generateMnemonic();
-
-            // 使用完整BIP39+BIP44实现
-            $account = \Dsdcr\TronWeb\Support\HdWallet::mnemonicToAccount(
-                $mnemonic,
-                $passphrase,
-                $path
-            );
-
-            return [
-                'private_key' => $account['private_key'],
-                'public_key' => $account['public_key'],
-                'address_hex' => $account['address_hex'],
-                'address_base58' => $account['address_base58'],
-                'mnemonic' => $mnemonic,
-                'derivation_path' => $path,
-                'passphrase' => $passphrase
-            ];
-
-        } catch (Exception $e) {
-            throw new TronException('Failed to generate account from mnemonic: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * 验证助记词短语
-     *
-     * @param string $mnemonic 助记词
-     * @return bool 是否有效
-     */
-    public function validateMnemonic(string $mnemonic): bool
-    {
-        return \Dsdcr\TronWeb\Support\Bip39::validateMnemonic($mnemonic);
-    }
-
-    /**
-     * 从助记词生成种子（PBKDF2 - BIP39标准）
-     *
-     * @param string $mnemonic 助记词
-     * @param string $passphrase 密码短语
-     * @return string 种子
-     * @throws TronException
-     */
-    public function mnemonicToSeed(string $mnemonic, string $passphrase = ''): string
-    {
-        try {
-            return \Dsdcr\TronWeb\Support\Bip39::mnemonicToSeed($mnemonic, $passphrase);
-        } catch (Exception $e) {
-            throw new TronException('Failed to generate seed from mnemonic: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * 检查私钥是否从助记词衍生而来
-     *
-     * @param string $privateKey 要验证的私钥
-     * @param string $mnemonic 要检查的助记词短语
-     * @param string $path BIP44衍生路径
-     * @param string $passphrase 使用的密码短语
-     * @return bool 如果私钥与助记词衍生匹配则为true
-     * @throws TronException
-     */
-    public function isPrivateKeyFromMnemonic(
-        string $privateKey,
-        string $mnemonic,
-        string $path = "m/44'/195'/0'/0/0",
-        string $passphrase = ''
-    ): bool {
-        if (!$this->isValidPrivateKey($privateKey)) {
-            throw new TronException('Invalid private key format');
-        }
-
-        if (!\Dsdcr\TronWeb\Support\Bip39::validateMnemonic($mnemonic)) {
-            throw new TronException('Invalid mnemonic phrase');
-        }
-
-        try {
-            // Generate account from mnemonic
-            $account = \Dsdcr\TronWeb\Support\HdWallet::mnemonicToAccount(
-                $mnemonic,
-                $passphrase,
-                $path
-            );
-
-            // Compare private keys (case-insensitive)
-            return strtolower($privateKey) === strtolower($account['private_key']);
-
-        } catch (Exception $e) {
-            throw new TronException('Failed to verify private key: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * 查找私钥来自哪个衍生路径
-     *
-     * @param string $privateKey 要查找的私钥
-     * @param string $mnemonic 助记词短语
-     * @param array $paths 要检查的路径数组
-     * @param string $passphrase 使用的密码短语
-     * @return string|null 匹配的路径，如果未找到则为null
-     * @throws TronException
-     */
-    public function findPrivateKeyDerivationPath(
-        string $privateKey,
-        string $mnemonic,
-        array $paths = [
-            "m/44'/195'/0'/0/0",
-            "m/44'/195'/0'/0/1",
-            "m/44'/195'/0'/0/2",
-            "m/44'/195'/0'/1/0",
-            "m/44'/195'/0'/1/1"
-        ],
-        string $passphrase = ''
-    ): ?string {
-        if (!$this->isValidPrivateKey($privateKey)) {
-            throw new TronException('Invalid private key format');
-        }
-
-        if (!\Dsdcr\TronWeb\Support\Bip39::validateMnemonic($mnemonic)) {
-            throw new TronException('Invalid mnemonic phrase');
-        }
-
-        $privateKey = strtolower($privateKey);
-
-        foreach ($paths as $path) {
-            try {
-                $account = \Dsdcr\TronWeb\Support\HdWallet::mnemonicToAccount(
-                    $mnemonic,
-                    $passphrase,
-                    $path
-                );
-
-                if ($privateKey === strtolower($account['private_key'])) {
-                    return $path;
-                }
-            } catch (Exception $e) {
-                // Skip invalid paths and continue
-                continue;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * 获取多个账户的余额
-     *
-     * @param array $accounts 要检查的账户地址数组
-     * @param bool $fromTron 是否从SUN转换为TRX
-     * @param bool $validate 查询前验证地址
-     * @return array 余额结果
-     * @throws TronException
+     * @see getBalance() 查询单个地址余额
      */
     public function getBalances(array $accounts, bool $fromTron = false, bool $validate = false): array
     {
@@ -693,12 +526,12 @@ class Account extends BaseModule
                 throw new TronException('Account addresses must be strings');
             }
 
-            if ($validate && !$this->isValidAddress($account)) {
+            if ($validate && !TronUtils::isAddress($account)) {
                 throw new TronException("Invalid address: {$account}");
             }
 
             try {
-                $balance = $this->getTronWeb()->trx->getBalance($account, $fromTron);
+                $balance = $this->tronWeb->trx->getBalance($account, $fromTron);
                 $results[] = [
                     'address' => $account,
                     'balance' => $balance,

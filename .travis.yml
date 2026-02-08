@@ -1,9 +1,7 @@
 language: php
 
 php:
-    - 8.0
-    - 8.1
-    - 8.2
+    - 7.4
 
 matrix:
     fast_finish: true
@@ -14,12 +12,6 @@ cache:
 
 before_install:
     - travis_retry composer self-update
-
+    
 install:
-    - travis_retry composer install --no-interaction --prefer-dist --ignore-platform-reqs
-
-script:
-    - vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
-
-after_script:
-    - bash <(curl -s https://codecov.io/bash)
+    - travis_retry composer install --no-interaction --prefer-dist

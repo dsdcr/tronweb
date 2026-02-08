@@ -72,15 +72,23 @@ class Ethabi
     }
 
     /**
-     * Encode function signature
+     * 编码函数签名
      *
-     * @param string $functionName
-     * @param array $inputs
-     * @return string
+     * @param string $functionName 函数名
+     * @param array $inputs 输入参数
+     * @return string 函数签名哈希
      */
     public function encodeFunctionSignature(string $functionName, array $inputs): string
     {
         $types = array_map(function ($input) {
+            // 处理复杂类型（如tuple）的签名生成
+            if ($input['type'] === 'tuple' && isset($input['components'])) {
+                // 对于元组类型，生成完整的components签名
+                $components = array_map(function ($component) {
+                    return $component['type'];
+                }, $input['components']);
+                return '(' . implode(',', $components) . ')';
+            }
             return $input['type'];
         }, $inputs);
 

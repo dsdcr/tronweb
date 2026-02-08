@@ -4,39 +4,76 @@ declare(strict_types=1);
 namespace Dsdcr\TronWeb\Modules;
 
 use Exception;
+use Dsdcr\TronWeb\TronWeb;
 use Dsdcr\TronWeb\Exception\TronException;
 use Dsdcr\TronWeb\Support\TronUtils;
-use Dsdcr\TronWeb\Support\Ethabi;
 
 /**
- * TRX模块 - 处理TRX交易和查询
+ * TRX模块 - Tron网络原生代币操作的核心模块
+ *
+ * 提供完整的TRX代币操作功能，包括：
+ * - TRX转账交易（send/sendTrx）
+ * - 余额查询（getBalance/getUnconfirmedBalance）
+ * - 区块和交易信息查询
+ * - 资源冻结和解冻管理
+ * - 消息签名和验证
+ * - 多签交易处理
+ * - 批量交易操作
+ * - 奖励和佣金查询
+ *
+ * 主要特性：
+ * - 支持主网和测试网操作
+ * - 支持已确认和未确认交易状态
+ * - 支持Base58和Hex格式地址
+ * - 提供完整的事务处理流程（构建、签名、广播）
+ * - 支持自定义权限和代理操作
  *
  * @package Dsdcr\TronWeb\Modules
+ * @since 1.0.0
  */
 class Trx extends BaseModule
 {
+
     /**
-     * 获取交易构建器实例（已废弃，保留向后兼容）
+     * 获取TransactionBuilder实例
      *
-     * @return void
-     * @throws TronException
+     * @return TransactionBuilder
      */
-    public function getTransactionBuilder(): void
+    public function getTransactionBuilder(): \Dsdcr\TronWeb\Modules\TransactionBuilder
     {
-        throw new TronException('TransactionBuilder has been deprecated. Please use direct module methods instead.');
+        return $this->tronWeb->transactionBuilder;
     }
 
     /**
-     * 获取地址余额
+     * 查询指定地址的TRX余额
      *
-     * @param string|null $address 地址
-     * @param bool $fromTron 是否从SUN转换为TRX
-     * @return float 余额
-     * @throws TronException
+     * 从Solidity节点获取账户的实时余额信息，支持多种场景：
+     * - 查询当前账户余额（默认）
+     * - 查询指定地址余额
+     * - 支持SUN和TRX单位转换
+     *
+     * @param string|null $address 要查询的地址（Base58格式），如为空则使用当前账户地址
+     * @param bool $fromTron 是否从SUN单位转换为TRX单位
+     *                      true: 返回TRX单位 (1 TRX = 1,000,000 SUN)
+     *                      false: 返回SUN单位（默认）
+     *
+     * @return float 账户余额数值
+     *
+     * @throws TronException 当地址格式无效或查询失败时抛出
+     *
+     * @example
+     * // 获取当前账户余额（SUN单位）
+     * $balance = $trx->getBalance();
+     *
+     * // 获取指定地址余额（TRX单位）
+     * $balance = $trx->getBalance('TXYZ...', true);
+     *
+     * // 获取当前账户余额（TRX单位）
+     * $balance = $trx->getBalance(null, true);
      */
     public function getBalance(?string $address = null, bool $fromTron = false): float
     {
-        $addressHex = $address ? TronUtils::addressToHex($address) : $this->getDefaultAddress()['hex'];
+        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
         $account = $this->request('walletsolidity/getaccount', [
             'address' => $addressHex
@@ -51,48 +88,108 @@ class Trx extends BaseModule
     }
 
     /**
-     * 发送TRX到另一个地址
+     * 发送TRX交易到指定地址
      *
-     * @param string $to 接收地址
-     * @param float $amount 金额
-     * @param string|null $from 发送地址
-     * @param string|null $message 附加消息
-     * @return array 交易结果
-     * @throws TronException
+     * 这是一个核心的TRX转账方法，支持多种调用方式：
+     * 1. 使用预设的私钥和地址
+     * 2. 动态传入私钥和地址
+     * 3. 支持Base58和Hex格式地址
+     * 4. 包含消息选项（memo）
+     *
+     * @param string $to 接收方地址（Base58格式）
+     * @param float $amount 转账金额（单位为TRX）
+     * @param array $options 选项参数数组，可选包含：
+     *   - privateKey: 用于签名的私钥（字符串）
+     *   - address: 发送方地址（Base58格式）
+     *   - message: 交易附言/memo信息
+     *
+     * @return array 交易结果，包含：
+     *   - result: 交易执行结果（true/false）
+     *   - txid: 交易哈希ID
+     *   - [其他区块链返回的字段]
+     *
+     * @throws TronException 当参数无效、地址格式错误、余额不足或交易失败时抛出
+     *
+     * @example
+     * // 使用预设私钥发送
+     * $result = $trx->send('TXYZ...', 1.5);
+     *
+     * // 使用动态私钥发送
+     * $result = $trx->send('TXYZ...', 1.0, ['privateKey' => 'your_private_key']);
+     *
+     * // 发送带消息的交易
+     * $result = $trx->send('TXYZ...', 0.5, ['message' => 'payment invoice #123']);
      */
-    public function send(string $to, float $amount, ?string $from = null, ?string $message = null): array
+    public function sendTrx(string $to, float $amount, array $options = []): array
     {
-        $from = $from ? TronUtils::addressToHex($from) : $this->getDefaultAddress()['hex'];
-        $to = TronUtils::addressToHex($to);
-
-        if ($from === $to) {
-            throw new TronException('Cannot transfer TRX to the same account');
+        if (is_string($options['privateKey'] ?? null)) {
+            // 处理字符串形式的私钥选项
+            $options = ['privateKey' => $options['privateKey']];
         }
 
-        $options = [
-            'to_address' => $to,
-            'owner_address' => $from,
-            'amount' => TronUtils::toSun($amount),
-        ];
-
-        if (!is_null($message)) {
-            $options['extra_data'] = TronUtils::toUtf8($message);
+        if (!TronUtils::isAddress($to)) {
+            throw new TronException('Invalid recipient provided');
         }
 
-        $transaction = $this->getTronWeb()->request('wallet/createtransaction', $options);
+        $amount = (int)$amount;
+        if ($amount <= 0) {
+            throw new TronException('Invalid amount provided');
+        }
+
+        $privateKey = $options['privateKey'] ?? $this->tronWeb->getPrivateKey();
+        $address = $options['address'] ?? null;
+
+        if (!$privateKey && !$address) {
+            throw new TronException('Function requires either a private key or address to be set');
+        }
+
+        // 如果只提供了私钥，从中获取地址
+        if ($privateKey && !$address) {
+            $address = $this->tronWeb->fromPrivateKey($privateKey);
+        }
+
+        if (isset($options['privateKey'])) {
+            unset($options['privateKey']);
+        }
+
+        // 使用TransactionBuilder构建交易
+        $transaction = $this->tronWeb->transactionBuilder->sendTrx(
+            $to,
+            $amount,
+            $address,
+            $options
+        );
+
+        // 签名并广播交易
         $signedTransaction = $this->signTransaction($transaction);
-
         return $this->sendRawTransaction($signedTransaction);
     }
 
     /**
-     * 签名交易
+     * 对交易进行数字签名
      *
-     * @param array $transaction 交易数据
-     * @return array 签名后的交易
-     * @throws TronException
+     * 使用当前账户的私钥对交易数据进行签名，生成有效的数字签名。
+     * 签名过程使用Secp256k1椭圆曲线加密算法。
+     *
+     * @param array $transaction 待签名的交易数据数组，必须包含：
+     *   - txID: 交易哈希ID
+     *   - raw_data: 原始交易数据
+     *
+     * @return array 签名后的交易数据，包含：
+     *   - 原始交易所有字段
+     *   - signature: 数字签名数组
+     *
+     * @throws TronException 当交易已签名、包含错误或私钥未设置时抛出
+     *
+     * @example
+     * // 构建交易后签名
+     * $transaction = $transactionBuilder->createSomeTransaction();
+     * $signedTx = $trx->signTransaction($transaction);
+     *
+     * @see Secp::sign() 签名算法实现
+     * @see sendRawTransaction() 广播已签名的交易
      */
-    public function signTransaction(array $transaction): array
+    public function signTransaction(array $transaction, array $options = []): array
     {
         if (isset($transaction['Error'])) {
             throw new TronException($transaction['Error']);
@@ -102,34 +199,84 @@ class Trx extends BaseModule
             throw new TronException('Transaction is already signed');
         }
 
-        $privateKey = $this->getPrivateKey();
+        $privateKey = $this->tronWeb->getPrivateKey();
         $signature = \Dsdcr\TronWeb\Support\Secp::sign($transaction['txID'], $privateKey);
 
         $transaction['signature'] = [$signature];
+
+        // 应用选项
+        if (!empty($options)) {
+            $transaction = array_merge($transaction, $options);
+        }
+
         return $transaction;
     }
 
     /**
-     * 广播已签名的交易
+     * 广播已签名的交易到Tron网络
      *
-     * @param array $signedTransaction 已签名的交易
-     * @return array 广播结果
-     * @throws TronException
+     * 将已完成签名的交易提交到Tron网络进行广播和执行。
+     * 这是交易生命周期的最后一步，交易将被包含在下一个区块中。
+     *
+     * @param array $signedTransaction 已签名的交易数据，必须包含：
+     *   - signature: 有效的数字签名数组
+     *   - txID: 交易哈希ID
+     *   - raw_data: 原始交易数据
+     *
+     * @return array 广播结果，包含：
+     *   - result: 广播是否成功（true/false）
+     *   - txid: 交易哈希ID
+     *   - [其他区块链返回的状态字段]
+     *
+     * @throws TronException 当交易未签名、签名无效或网络广播失败时抛出
+     *
+     * @example
+     * // 构建、签名并广播交易
+     * $transaction = $builder->createTransaction(...);
+     * $signedTx = $trx->signTransaction($transaction);
+     * $result = $trx->sendRawTransaction($signedTx);
+     *
+     * @see signTransaction() 交易签名方法
+     * @see sendTrx() 完整的发送交易流程
      */
-    public function sendRawTransaction(array $signedTransaction): array
+    public function sendRawTransaction(array $signedTransaction, array $options = []): array
     {
         if (!isset($signedTransaction['signature']) || !is_array($signedTransaction['signature'])) {
             throw new TronException('Transaction is not signed');
+        }
+
+        // 合并选项
+        if (!empty($options)) {
+            $signedTransaction = array_merge($signedTransaction, $options);
         }
 
         return $this->request('wallet/broadcasttransaction', $signedTransaction);
     }
 
     /**
-     * 获取当前区块信息
+     * 获取当前最新区块的完整信息
      *
-     * @return array 区块信息
-     * @throws TronException
+     * 从全节点获取网络中最新确认的区块数据，包含：
+     * - 区块头信息（版本、时间戳、父哈希等）
+     * - 交易列表
+     * - 区块生产见证人信息
+     * - 其他区块链元数据
+     *
+     * @return array 当前区块的完整数据结构，主要包含：
+     *   - blockID: 区块哈希ID
+     *   - block_header: 区块头信息
+     *   - transactions: 交易列表数组
+     *
+     * @throws TronException 当网络请求失败或返回数据格式错误时抛出
+     *
+     * @example
+     * // 获取最新区块信息
+     * $block = $trx->getCurrentBlock();
+     * echo "区块高度: " . $block['block_header']['raw_data']['number'];
+     * echo "交易数量: " . count($block['transactions']);
+     *
+     * @see getBlock() 获取指定区块信息
+     * @see getBlockByNumber() 通过区块号获取区块
      */
     public function getCurrentBlock(): array
     {
@@ -137,59 +284,139 @@ class Trx extends BaseModule
     }
 
     /**
-     * 通过区块号或哈希获取区块
+     * 获取指定区块的完整信息
      *
-     * @param mixed $block 区块号或哈希
-     * @return array 区块信息
-     * @throws TronException
+     * 支持多种区块标识符格式：
+     * - 'earliest': 获取创世区块（区块号0）
+     * - 'latest': 获取最新区块（等同于getCurrentBlock）
+     * - 数字: 获取指定区块号的区块
+     * - 哈希: 获取指定区块哈希的区块
+     * - false: 使用默认区块标识符（通常为'latest'）
+     *
+     * @param mixed $block 区块标识符，支持：
+     *   - 'earliest': 创世区块
+     *   - 'latest': 最新区块
+     *   - number: 区块号（整数）
+     *   - string: 区块哈希（16进制）
+     *   - false: 使用默认配置
+     *
+     * @return array 区块完整信息，包含：
+     *   - blockID: 区块哈希ID
+     *   - block_header: 区块头信息（版本、时间戳、见证人等）
+     *   - transactions: 区块包含的交易列表
+     *
+     * @throws TronException 当区块标识符无效或区块不存在时抛出
+     *
+     * @example
+     * // 获取最新区块
+     * $block = $trx->getBlock('latest');
+     *
+     * // 获取指定区块号的区块
+     * $block = $trx->getBlock(123456);
+     *
+     * // 获取创世区块
+     * $block = $trx->getBlock('earliest');
+     *
+     * @see getCurrentBlock() 获取最新区块
+     * @see getBlockByNumber() 通过区块号获取区块
+     * @see getBlockByHash() 通过区块哈希获取区块
      */
-    public function getBlock($block = null): array
+    public function getBlock(mixed $block = false): array
     {
-        if ($block === null) {
+        if ($block === false) {
+            $block = $this->tronWeb->defaultBlock ?? 'latest';
+        }
+
+        if ($block === 'earliest') {
+            return $this->getBlockByNumber(0);
+        }
+
+        if ($block === 'latest') {
             return $this->getCurrentBlock();
+        }
+
+        if (is_numeric($block)) {
+            return $this->getBlockByNumber((int)$block);
         }
 
         if (TronUtils::isHex($block)) {
             return $this->getBlockByHash($block);
         }
 
-        return $this->getBlockByNumber((int)$block);
+        throw new TronException('Invalid block identifier provided');
     }
 
     /**
-     * 通过哈希获取区块
+     * getBlockByHash方法
      *
-     * @param string $hash 区块哈希
+     * @param string $blockHash 区块哈希
      * @return array 区块信息
      * @throws TronException
      */
-    public function getBlockByHash(string $hash): array
+    public function getBlockByHash(string $blockHash): array
     {
-        return $this->request('wallet/getblockbyid', ['value' => $hash]);
-    }
+        $block = $this->request('wallet/getblockbyid', [
+            'value' => $blockHash
+        ]);
 
-    /**
-     * 通过区块号获取区块
-     *
-     * @param int $number 区块号
-     * @return array 区块信息
-     * @throws TronException
-     */
-    public function getBlockByNumber(int $number): array
-    {
-        if ($number < 0) {
-            throw new TronException('Block number must be non-negative');
+        if (empty($block) || !isset($block['block_header'])) {
+            throw new TronException('Block not found');
         }
 
-        return $this->request('wallet/getblockbynum', ['num' => $number]);
+        return $block;
     }
 
     /**
-     * 通过交易ID获取交易
+     * getBlockByNumber方法
      *
-     * @param string $transactionID 交易ID
-     * @return array 交易信息
+     * @param int $blockID 区块号
+     * @return array 区块信息
      * @throws TronException
+     */
+    public function getBlockByNumber(int $blockID): array
+    {
+        if ($blockID < 0) {
+            throw new TronException('Invalid block number provided');
+        }
+
+        $block = $this->request('wallet/getblockbynum', [
+            'num' => $blockID
+        ]);
+
+        if (empty($block) || !isset($block['block_header'])) {
+            throw new TronException('Block not found');
+        }
+
+        return $block;
+    }
+
+    /**
+     * 通过交易哈希ID获取交易详情
+     *
+     * 从全节点查询指定交易ID的完整信息，包含：
+     * - 交易原始数据（发送方、接收方、金额等）
+     * - 交易签名信息
+     * - 交易状态和确认信息
+     * - 合约调用详情（如适用）
+     *
+     * @param string $transactionID 交易哈希ID（64字符十六进制字符串）
+     *
+     * @return array 交易详情数组，包含：
+     *   - ret: 交易执行结果数组
+     *   - signature: 签名列表
+     *   - txID: 交易ID
+     *   - raw_data: 原始交易数据
+     *   - raw_data_hex: 原始数据十六进制
+     *
+     * @throws TronException 当交易ID格式错误或交易不存在时抛出
+     *
+     * @example
+     * // 获取交易详情
+     * $transaction = $trx->getTransaction('abc123...');
+     * echo "发送方: " . $transaction['raw_data']['contract'][0]['parameter']['value']['owner_address'];
+     *
+     * @see getTransactionInfo() 获取交易执行信息
+     * @see getConfirmedTransaction() 获取已确认的交易信息
      */
     public function getTransaction(string $transactionID): array
     {
@@ -199,11 +426,35 @@ class Trx extends BaseModule
     }
 
     /**
-     * 通过交易ID获取交易信息
+     * 获取交易的执行信息和状态详情
      *
-     * @param string $transactionID 交易ID
-     * @return array 交易详细信息
-     * @throws TronException
+     * 与getTransaction()不同，此方法返回交易的执行结果信息，包括：
+     * - 交易执行结果（成功/失败）
+     * - 消耗的资源信息（带宽、能量）
+     * - 合约执行结果（如适用）
+     * - 交易费用信息
+     *
+     * @param string $transactionID 交易哈希ID（64字符十六进制字符串）
+     *
+     * @return array 交易执行信息，包含：
+     *   - id: 交易ID
+     *   - fee: 交易费用（SUN）
+     *   - blockNumber: 所在区块号
+     *   - blockTimeStamp: 区块时间戳
+     *   - contractResult: 合约执行结果
+     *   - receipt: 交易收据信息
+     *   - log: 事件日志（如适用）
+     *
+     * @throws TronException 当交易ID格式错误或交易不存在时抛出
+     *
+     * @example
+     * // 获取交易执行信息
+     * $info = $trx->getTransactionInfo('abc123...');
+     * echo "交易费用: " . $info['fee'] . " SUN";
+     * echo "执行结果: " . ($info['receipt']['result'] === 'SUCCESS' ? '成功' : '失败');
+     *
+     * @see getTransaction() 获取交易原始数据
+     * @see getConfirmedTransaction() 获取已确认的交易信息
      */
     public function getTransactionInfo(string $transactionID): array
     {
@@ -235,9 +486,9 @@ class Trx extends BaseModule
      */
     public function getUnconfirmedAccount(?string $address = null): array
     {
-        $addressHex = $address ? TronUtils::addressToHex($address) : $this->getDefaultAddress()['hex'];
+        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        if (!TronUtils::isValidTronAddress(TronUtils::hexToAddress($addressHex))) {
+        if (!TronUtils::isAddress(TronUtils::fromHex($addressHex))) {
             throw new TronException('Invalid address provided');
         }
 
@@ -268,13 +519,13 @@ class Trx extends BaseModule
      */
     public function getBandwidth(?string $address = null): array
     {
-        $addressHex = $address ? TronUtils::addressToHex($address) : $this->getDefaultAddress()['hex'];
+        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        if (!TronUtils::isValidTronAddress(TronUtils::hexToAddress($addressHex))) {
+        if (!TronUtils::isAddress(TronUtils::fromHex($addressHex))) {
             throw new TronException('Invalid address provided');
         }
 
-        $account = $this->getAccountInfo($addressHex);
+        $account = $this->getAccount($addressHex);
 
         return [
             'free_bandwidth' => $account['free_net_usage'] ?? 0,
@@ -285,70 +536,37 @@ class Trx extends BaseModule
     }
 
     /**
-     * 获取账户资源信息
+     * getTransactionsFromBlock方法
      *
-     * @param string|null $address 地址
-     * @return array 账户资源信息
+     * @param mixed $block 区块标识符
+     * @return array 交易列表
      * @throws TronException
      */
-    public function getAccountResources(?string $address = null): array
-    {
-        $addressHex = $address ? TronUtils::addressToHex($address) : $this->getDefaultAddress()['hex'];
-
-        if (!TronUtils::isValidTronAddress(TronUtils::hexToAddress($addressHex))) {
-            throw new TronException('Invalid address provided');
-        }
-
-        $response = $this->request('wallet/getaccountresource', [
-            'address' => $addressHex
-        ], 'post');
-
-        return [
-            'energy_limit' => $response['EnergyLimit'] ?? 0,
-            'energy_used' => $response['EnergyUsed'] ?? 0,
-            'free_net_limit' => $response['freeNetLimit'] ?? 0,
-            'free_net_used' => $response['freeNetUsed'] ?? 0,
-            'net_limit' => $response['NetLimit'] ?? 0,
-            'net_used' => $response['NetUsed'] ?? 0,
-            'asset_net_used' => $response['AssetNetUsed'] ?? [],
-            'asset_net_limit' => $response['AssetNetLimit'] ?? [],
-            'total_net_limit' => $response['TotalNetLimit'] ?? 0,
-            'total_net_weight' => $response['TotalNetWeight'] ?? 0,
-            'total_energy_limit' => $response['TotalEnergyLimit'] ?? 0,
-            'total_energy_weight' => $response['TotalEnergyWeight'] ?? 0
-        ];
-    }
-
-    /**
-     * 获取区块中的交易数量
-     *
-     * @param mixed $block 区块号、哈希，或null表示最新区块
-     * @return int 交易数量
-     * @throws TronException
-     */
-    public function getTransactionCount($block = null): int
+    public function getTransactionsFromBlock(mixed $block = false): array
     {
         $blockData = $this->getBlock($block);
-        return count($blockData['transactions'] ?? []);
+        return $blockData['transactions'] ?? [];
     }
 
     /**
-     * 通过索引从区块中获取交易
+     * getTransactionFromBlock方法
      *
-     * @param mixed $block 区块号、哈希，或null表示最新区块
+     * @param mixed $block 区块标识符
      * @param int $index 交易索引
      * @return array 交易信息
      * @throws TronException
      */
-    public function getTransactionFromBlock($block = null, int $index = 0): array
+    public function getTransactionFromBlock(mixed $block = false, int $index = 0): array
     {
         $blockData = $this->getBlock($block);
 
-        if (!isset($blockData['transactions'][$index])) {
+        $transactions = $blockData['transactions'] ?? [];
+
+        if (!isset($transactions[$index])) {
             throw new TronException('Transaction not found at index ' . $index);
         }
 
-        return $blockData['transactions'][$index];
+        return $transactions[$index];
     }
 
     /**
@@ -398,78 +616,48 @@ class Trx extends BaseModule
     }
 
     /**
-     * 发送交易（详细参数，send的别名）
+     * getBlockTransactionCount方法
      *
-     * @param string $to 接收地址
-     * @param float $amount 金额
-     * @param string|null $from 发送地址
-     * @param string|null $message 附加消息
-     * @return array 交易结果
-     * @throws TronException
-     */
-    public function sendTransaction(string $to, float $amount, ?string $from = null, ?string $message = null): array
-    {
-        return $this->send($to, $amount, $from, $message);
-    }
-
-    /**
-     * send的别名（向后兼容）
-     *
-     * @param string $to 接收地址
-     * @param float $amount 金额
-     * @param string|null $from 发送地址
-     * @param string|null $message 附加消息
-     * @return array 交易结果
-     * @throws TronException
-     */
-    public function sendTrx(string $to, float $amount, ?string $from = null, ?string $message = null): array
-    {
-        return $this->send($to, $amount, $from, $message);
-    }
-
-    /**
-     * 获取区块交易数量（getTransactionCount的别名）
-     *
-     * @param mixed $block 区块号、哈希，或null表示最新区块
+     * @param mixed $block 区块标识符
      * @return int 交易数量
      * @throws TronException
      */
-    public function getBlockTransactionCount($block = null): int
+    public function getBlockTransactionCount(mixed $block = false): int
     {
-        return $this->getTransactionCount($block);
+        $blockData = $this->getBlock($block);
+        return count($blockData['transactions'] ?? []);
     }
 
     /**
      * 通过十六进制地址获取账户信息
      *
-     * @param string $addressHex 十六进制地址
+     * @param string $address 地址
      * @return array 账户信息
      * @throws TronException
      */
-    public function getAccountInfo(string $addressHex): array
+    public function getAccount(string $address): array
     {
+        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
         return $this->request('walletsolidity/getaccount', [
             'address' => $addressHex
         ]);
     }
 
     /**
-     * 多签交易，包含完整的权限验证
+     * 多签交易方法
      *
      * @param array $transaction 交易数据
      * @param string|null $privateKey 私钥
-     * @param array $options 选项
+     * @param int $permissionId 权限ID
      * @return array 签名结果
      * @throws TronException
      */
-    public function multiSign(array $transaction, ?string $privateKey = null, array $options = []): array
+    public function multiSign(array $transaction, ?string $privateKey = null, int $permissionId = 0): array
     {
-        $privateKey = $privateKey ?: $this->getPrivateKey();
+        $privateKey = $privateKey ?: $this->tronWeb->getPrivateKey();
         if (!$privateKey) {
             throw new TronException('No private key provided for multi-signature');
         }
-
-        $permissionId = $options['permissionId'] ?? 0;
 
         // 验证交易格式
         if (!isset($transaction['raw_data']) || !isset($transaction['raw_data']['contract'])) {
@@ -485,7 +673,7 @@ class Trx extends BaseModule
             $transaction['raw_data']['contract'][0]['Permission_id'] = $permissionId;
 
             // 检查私钥是否在权限列表中
-            $address = strtolower($this->getAddressFromPrivateKey($privateKey));
+            $address = strtolower($this->tronWeb->fromPrivateKey($privateKey));
 
             $signWeight = $this->getSignWeight($transaction, ['permissionId' => $permissionId]);
 
@@ -526,18 +714,6 @@ class Trx extends BaseModule
         ], 'post');
     }
 
-    /**
-     * 从私钥获取地址
-     *
-     * @param string $privateKey 私钥
-     * @return string 十六进制地址
-     */
-    private function getAddressFromPrivateKey(string $privateKey): string
-    {
-        // 使用Account模块的方法从私钥获取地址
-        $tronAddress = $this->getTronWeb()->account->createWithPrivateKey($privateKey);
-        return $tronAddress->getAddress(false); // false = hex format
-    }
 
     /**
      * 获取交易的签名权重
@@ -592,11 +768,11 @@ class Trx extends BaseModule
      */
     public function getDelegatedResource(?string $fromAddress = null, ?string $toAddress = null, array $options = []): array
     {
-        $fromAddressHex = $fromAddress ? TronUtils::addressToHex($fromAddress) : $this->getDefaultAddress()['hex'];
+        $fromAddressHex = $fromAddress ? TronUtils::toHex($fromAddress) : $this->tronWeb->getAddress()['hex'];
         $params = ['fromAddress' => $fromAddressHex];
 
         if ($toAddress) {
-            $params['toAddress'] = TronUtils::addressToHex($toAddress);
+            $params['toAddress'] = TronUtils::toHex($toAddress);
         }
 
         return $this->request('wallet/getdelegatedresource', $params);
@@ -622,7 +798,7 @@ class Trx extends BaseModule
      */
     public function getRewardInfo(?string $address = null): array
     {
-        $addressHex = $address ? TronUtils::addressToHex($address) : $this->getDefaultAddress()['hex'];
+        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
         return $this->request('walletsolidity/getreward', [
             'address' => $addressHex
@@ -645,7 +821,7 @@ class Trx extends BaseModule
         }
 
         $results = [];
-        $fromHex = $from ? TronUtils::addressToHex($from) : $this->getDefaultAddress()['hex'];
+        $fromHex = $from ? TronUtils::toHex($from) : $this->tronWeb->getAddress()['hex'];
 
         foreach ($recipients as $index => $recipient) {
             if (!is_array($recipient) || count($recipient) !== 2) {
@@ -662,12 +838,12 @@ class Trx extends BaseModule
                 throw new TronException("Recipient {$index} amount must be a positive number");
             }
 
-            if ($validate && !$this->getTronWeb()->account->isValidAddress($toAddress)) {
+            if ($validate && !TronUtils::isAddress($toAddress)) {
                 throw new TronException("Recipient {$index} invalid address: {$toAddress}");
             }
 
             try {
-                $result = $this->send($toAddress, (float)$amount, $from);
+                $result = $this->sendTrx($toAddress, (float)$amount, $fromHex);
                 $results[] = [
                     'recipient' => $toAddress,
                     'amount' => $amount,
@@ -754,9 +930,9 @@ class Trx extends BaseModule
      */
     protected function _getReward(?string $address = null, array $options = ['confirmed' => true]): array
     {
-        $addr = $address ? TronUtils::addressToHex($address) : $this->getDefaultAddress()['hex'];
+        $addr = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        if (!TronUtils::isValidTronAddress(TronUtils::hexToAddress($addr))) {
+        if (!TronUtils::isAddress(TronUtils::fromHex($addr))) {
             throw new TronException('Invalid address provided');
         }
 
@@ -787,9 +963,9 @@ class Trx extends BaseModule
      */
     protected function _getBrokerage(?string $address = null, array $options = ['confirmed' => true]): array
     {
-        $addr = $address ? TronUtils::addressToHex($address) : $this->getDefaultAddress()['hex'];
+        $addr = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        if (!TronUtils::isValidTronAddress(TronUtils::hexToAddress($addr))) {
+        if (!TronUtils::isAddress(TronUtils::fromHex($addr))) {
             throw new TronException('Invalid address provided');
         }
 
@@ -884,31 +1060,50 @@ class Trx extends BaseModule
     }
 
     /**
-     * 验证消息签名
+     * 验证消息签名的有效性
      *
-     * @param string $message 消息内容
-     * @param string $signature 签名
-     * @param string $address 地址（base58格式）
-     * @param bool $useTronHeader 是否使用TRON消息头
-     * @return bool 签名是否有效
+     * @param array|string $message 消息内容（必须为十六进制格式，如"0x..."）
+     * @param string $signature 待验证的签名（Hex格式）
+     * @param string|null $address 签名者地址（Base58格式，可选，默认使用当前账户地址）
+     * @param bool $useTronHeader 是否使用TRON消息头（默认true，用于兼容性）
+     * @return bool 签名是否有效且匹配
      * @throws TronException
      */
-    public function verifyMessage(string $message, string $signature, string $address, bool $useTronHeader = true): bool
+    public function verifyMessage(array|string $message, string $signature, ?string $address = null, bool $useTronHeader = true): bool
     {
-        return \Dsdcr\TronWeb\Support\Message::verifyMessageWithAddress(
+        if (!preg_match('/^0x[a-fA-F0-9]+$/i', $message)) {
+            throw new TronException('Expected hex message input');
+        }
+
+        $address = $address ?? $this->tronWeb->getAddress()['base58'] ?? null;
+        if (!$address) {
+            throw new TronException('Address is required');
+        }
+
+        // 验证地址格式
+        if (!TronUtils::isAddress($address)) {
+            throw new TronException('Invalid address provided');
+        }
+
+        $result = \Dsdcr\TronWeb\Support\Message::verifyMessageWithAddress(
             $message, $signature, $address, $useTronHeader
         );
+
+        if (!$result) {
+            throw new TronException('Signature does not match');
+        }
+
+        return true;
     }
 
     /**
-     * 验证消息签名（兼容TypeScript版本）
+     * 验证消息签名
      *
-     * @param string $messageHex 十六进制格式的消息
-     * @param string $signature 签名
-     * @param string $address 地址（base58格式）
-     * @param bool $useTronHeader 是否使用TRON消息头
-     * @return bool 签名是否有效
-     * @throws TronException
+     * @param string $messageHex 十六进制格式的消息内容
+     * @param string $address 签名者地址（Base58格式）
+     * @param string $signature 待验证的签名（Hex格式）
+     * @param bool $useTronHeader 是否使用TRON消息头（默认true）
+     * @return bool 签名是否有效且匹配指定地址
      */
     public function verifySignature(string $messageHex, string $address, string $signature, bool $useTronHeader = true): bool
     {
@@ -918,148 +1113,221 @@ class Trx extends BaseModule
     }
 
     /**
-     * 验证消息签名V2版本
+     * 验证消息签名并恢复签名者地址（V2版本）
      *
-     * @param string|array $message 消息内容
-     * @param string $signature 签名
-     * @return string 恢复出的地址
+     * @param array|string|int[] $message 消息内容（支持十六进制字符串、字节数组或数字数组）
+     * @param string $signature 签名（Hex格式）
+     * @return string 从签名中恢复出的签名者地址（Base58格式）
      * @throws TronException
      */
-    public function verifyMessageV2($message, string $signature): string
+    public function verifyMessageV2(array|string $message, string $signature): string
     {
         return \Dsdcr\TronWeb\Support\Message::verifyMessage($message, $signature);
     }
 
     /**
-     * 签名消息
+     * 签名消息方法
      *
-     * @param string|array $message 要签名的消息
+     * @param string $message 要签名的消息
      * @param string|null $privateKey 私钥
      * @param bool $useTronHeader 是否使用TRON消息头
      * @return string 签名结果
      * @throws TronException
      */
-    public function signMessage($message, ?string $privateKey = null, bool $useTronHeader = true): string
+    public function signMessage(string $message, ?string $privateKey = null, bool $useTronHeader = true): string
     {
-        $privateKey = $privateKey ?: $this->getPrivateKey();
+        $privateKey = $privateKey ?: $this->tronWeb->getPrivateKey();
         return \Dsdcr\TronWeb\Support\Message::signMessage($message, $privateKey, $useTronHeader);
     }
 
     /**
-     * 触发智能合约
+     * getAccountResources方法
      *
-     * @param array $abi ABI接口定义
-     * @param string $contract 合约地址
-     * @param string $function 函数名
-     * @param array $params 参数数组
-     * @param int $feeLimit 费用限制
-     * @param string $address 调用者地址
-     * @param int $callValue 调用值
-     * @param int $bandwidthLimit 带宽限制
-     * @return array 交易结果
+     * @param string|null $address 地址
+     * @return array 账户资源信息
      * @throws TronException
      */
-    public function triggerSmartContract(
-        array $abi,
-        string $contract,
-        string $function,
-        array $params,
-        int $feeLimit,
-        string $address,
-        int $callValue = 0,
-        int $bandwidthLimit = 0
-    ): array {
-        // 构建函数签名
-        $funcAbi = [];
-        foreach ($abi as $item) {
-            if (isset($item['name']) && $item['name'] === $function) {
-                $funcAbi = $item;
-                break;
-            }
+    public function getAccountResources(?string $address = null): array
+    {
+        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
+
+        if (!TronUtils::isAddress(TronUtils::fromHex($addressHex))) {
+            throw new TronException('Invalid address provided');
         }
 
-        if (empty($funcAbi)) {
-            throw new TronException("Function {$function} not defined in ABI");
-        }
+        $response = $this->request('wallet/getaccountresource', [
+            'address' => $addressHex
+        ], 'post');
 
-        $inputs = array_map(function ($item) {
-            return $item['type'];
-        }, $funcAbi['inputs'] ?? []);
-        $signature = $funcAbi['name'] . '(' . implode(',', $inputs) . ')';
-
-        // 编码参数
-        $ethAbi = new Ethabi();
-        $parameters = substr($ethAbi->encodeParameters($funcAbi, $params), 2);
-
-        // 发送交易
-        return $this->getTronWeb()->request('wallet/triggersmartcontract', [
-            'contract_address' => $contract,
-            'function_selector' => $signature,
-            'parameter' => $parameters,
-            'owner_address' => $address,
-            'fee_limit' => $feeLimit,
-            'call_value' => $callValue,
-            'consume_user_resource_percent' => $bandwidthLimit,
-        ]);
+        return [
+            'energy_limit' => $response['EnergyLimit'] ?? 0,
+            'energy_used' => $response['EnergyUsed'] ?? 0,
+            'free_net_limit' => $response['freeNetLimit'] ?? 0,
+            'free_net_used' => $response['freeNetUsed'] ?? 0,
+            'net_limit' => $response['NetLimit'] ?? 0,
+            'net_used' => $response['NetUsed'] ?? 0,
+            'asset_net_used' => $response['AssetNetUsed'] ?? [],
+            'asset_net_limit' => $response['AssetNetLimit'] ?? [],
+            'total_net_limit' => $response['TotalNetLimit'] ?? 0,
+            'total_net_weight' => $response['TotalNetWeight'] ?? 0,
+            'total_energy_limit' => $response['TotalEnergyLimit'] ?? 0,
+            'total_energy_weight' => $response['TotalEnergyWeight'] ?? 0
+        ];
     }
 
     /**
-     * 触发常量合约（只读操作）
+     * freezeBalance方法
      *
-     * @param array $abi ABI接口定义
-     * @param string $contract 合约地址
-     * @param string $function 函数名
-     * @param array $params 参数数组
-     * @param string $address 调用者地址
-     * @return array 合约调用结果
+     * @param int $amount 冻结金额（TRX）
+     * @param int $duration 冻结时长（天），最小3天
+     * @param string $resource 资源类型：'BANDWIDTH' 或 'ENERGY'
+     * @param array $options 选项参数（可包含privateKey或address）
+     * @param string|null $receiverAddress 接收地址（可选，用于代理冻结）
+     * @return array 交易结果
      * @throws TronException
      */
-    public function triggerConstantContract(
-        array $abi,
-        string $contract,
-        string $function,
-        array $params = [],
-        string $address = '410000000000000000000000000000000000000000'
-    ): array {
-        // 构建函数签名
-        $funcAbi = [];
-        foreach ($abi as $item) {
-            if (isset($item['name']) && $item['name'] === $function) {
-                $funcAbi = $item + ['inputs' => []];
-                break;
-            }
+    public function freezeBalance(int $amount = 0, int $duration = 3, string $resource = 'BANDWIDTH', array $options = [], ?string $receiverAddress = null): array
+    {
+        if (!in_array($resource, ['BANDWIDTH', 'ENERGY'], true)) {
+            throw new TronException('Invalid resource provided: Expected "BANDWIDTH" or "ENERGY"');
         }
 
-        if (empty($funcAbi)) {
-            throw new TronException("Function {$function} not defined in ABI");
+        if ($amount <= 0) {
+            throw new TronException('Invalid amount provided: Amount must be greater than 0');
         }
 
-        $inputs = array_map(function ($item) {
-            return $item['type'];
-        }, $funcAbi['inputs'] ?? []);
-        $signature = $funcAbi['name'] . '(' . implode(',', $inputs) . ')';
-
-        // 编码参数
-        $ethAbi = new Ethabi();
-        $parameters = substr($ethAbi->encodeParameters($funcAbi, $params), 2);
-
-        // 发送只读请求
-        $result = $this->getTronWeb()->request('wallet/triggerconstantcontract', [
-            'contract_address' => $contract,
-            'function_selector' => $signature,
-            'parameter' => $parameters,
-            'owner_address' => $address,
-        ]);
-
-        if (!isset($result['result'])) {
-            throw new TronException('No result field in response');
+        if ($duration < 3) {
+            throw new TronException('Invalid duration provided, minimum of 3 days');
         }
 
-        if (isset($result['result']['result']) && isset($result['constant_result'])) {
-            return $ethAbi->decodeParameters($funcAbi, $result['constant_result'][0]);
+        $privateKey = $options['privateKey'] ?? $this->tronWeb->getPrivateKey();
+        $address = $options['address'] ?? null;
+
+        if (!$privateKey && !$address) {
+            throw new TronException('Function requires either a private key or address to be set');
         }
 
-        $message = $result['result']['message'] ?? '';
-        throw new TronException('Failed to execute: ' . $message);
+        // 如果只提供了私钥，从中获取地址
+        if ($privateKey && !$address) {
+            $address = $this->tronWeb->fromPrivateKey($privateKey);
+        }
+
+        // 如果只提供了地址，确保是十六进制格式
+        if ($address && !TronUtils::isHex($address)) {
+            $address = TronUtils::toHex($address);
+        }
+
+        $transaction = $this->tronWeb->transactionBuilder->freezeBalance(
+            $amount,
+            $duration,
+            $resource,
+            $address,
+            $receiverAddress ? TronUtils::toHex($receiverAddress) : null
+        );
+
+        // 签名并广播交易
+        $signedTransaction = $this->signTransaction($transaction);
+        return $this->sendRawTransaction($signedTransaction);
+    }
+
+    /**
+     * unfreezeBalance方法
+     *
+     * 解冻已过最小冻结时长的TRX，解冻将移除带宽和TRON Power
+     *
+     * @param string $resource 资源类型：'BANDWIDTH' 或 'ENERGY'
+     * @param array $options 选项参数（可包含privateKey或address）
+     * @param string|null $receiverAddress 接收地址（可选，用于代理解冻）
+     * @return array 交易结果
+     * @throws TronException
+     */
+    public function unfreezeBalance(string $resource = 'BANDWIDTH', array $options = [], ?string $receiverAddress = null): array
+    {
+        if (!in_array($resource, ['BANDWIDTH', 'ENERGY'], true)) {
+            throw new TronException('Invalid resource provided: Expected "BANDWIDTH" or "ENERGY"');
+        }
+
+        $privateKey = $options['privateKey'] ?? $this->tronWeb->getPrivateKey();
+        $address = $options['address'] ?? null;
+
+        if (!$privateKey && !$address) {
+            throw new TronException('Function requires either a private key or address to be set');
+        }
+
+        // 如果只提供了私钥，从中获取地址
+        if ($privateKey && !$address) {
+            $address = $this->tronWeb->fromPrivateKey($privateKey);
+        }
+
+        // 如果只提供了地址，确保是十六进制格式
+        if ($address && !TronUtils::isHex($address)) {
+            $address = TronUtils::toHex($address);
+        }
+
+        $transaction = $this->tronWeb->transactionBuilder->unfreezeBalance(
+            $resource,
+            $address,
+            $receiverAddress ? TronUtils::toHex($receiverAddress) : null
+        );
+
+        // 签名并广播交易
+        $signedTransaction = $this->signTransaction($transaction);
+        return $this->sendRawTransaction($signedTransaction);
+    }
+
+    /**
+     * getTokenFromID方法
+     *
+     * @param mixed $tokenID 代币ID或名称
+     * @return array 代币信息
+     * @throws TronException
+     */
+    public function getTokenFromID(mixed $tokenID): array
+    {
+        if (is_int($tokenID)) {
+            $tokenID = (string)$tokenID;
+        }
+
+        if (!is_string($tokenID) || empty($tokenID)) {
+            throw new TronException('Invalid token ID provided');
+        }
+
+        $response = $this->request('wallet/getassetissuebyname', [
+            'value' => TronUtils::toUtf8($tokenID)
+        ], 'post');
+
+        // 检查代币是否存在
+        if (!isset($response['name'])) {
+            throw new TronException('Token does not exist');
+        }
+
+        return $this->parseToken($response);
+    }
+
+    /**
+     * 解析代币信息
+     *
+     * @param array $tokenData 原始代币数据
+     * @return array 解析后的代币信息
+     */
+    private function parseToken(array $tokenData): array
+    {
+        return [
+            'id' => $tokenData['id'] ?? null,
+            'owner_address' => $tokenData['owner_address'] ?? null,
+            'name' => TronUtils::fromUtf8($tokenData['name'] ?? ''),
+            'abbr' => TronUtils::fromUtf8($tokenData['abbr'] ?? ''),
+            'description' => TronUtils::fromUtf8($tokenData['description'] ?? ''),
+            'url' => TronUtils::fromUtf8($tokenData['url'] ?? ''),
+            'total_supply' => $tokenData['total_supply'] ?? 0,
+            'precision' => $tokenData['precision'] ?? 0,
+            'num' => $tokenData['num'] ?? 0,
+            'start_time' => $tokenData['start_time'] ?? 0,
+            'end_time' => $tokenData['end_time'] ?? 0,
+            'vote_score' => $tokenData['vote_score'] ?? 0,
+            'frozen_supply' => $tokenData['frozen_supply'] ?? [],
+            'trx_num' => $tokenData['trx_num'] ?? 0,
+            'asset_issue_contract' => $tokenData['asset_issue_contract'] ?? null
+        ];
     }
 }

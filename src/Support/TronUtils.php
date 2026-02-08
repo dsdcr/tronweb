@@ -11,12 +11,42 @@ use Dsdcr\TronWeb\Exception\TronException;
  *
  * @package Dsdcr\TronWeb\Support
  */
-class TronUtils extends Utils
+class TronUtils
 {
     const TRX_TO_SUN = 1000000;           // TRX到SUN的转换比率
     const ADDRESS_SIZE = 34;              // 地址长度
     const ADDRESS_PREFIX = "41";          // 地址前缀
     const ADDRESS_PREFIX_BYTE = 0x41;     // 地址前缀字节
+
+    /**
+     * 链接验证
+     *
+     * @param $url
+     * @return bool
+     */
+    public static function isValidUrl($url) :bool {
+        return (bool)parse_url($url);
+    }
+
+    /**
+     * 检查字符串是否为十六进制表示
+     *
+     * @param $str
+     * @return bool
+     */
+    public static function isHex($str) : bool {
+        return is_string($str) and ctype_xdigit($str);
+    }
+
+    /**
+     * 检查传递的参数是否是数组
+     *
+     * @param $array
+     * @return bool
+     */
+    public static function isArray($array) : bool {
+        return is_array($array);
+    }
 
     /**
      * 将TRX转换为SUN（最小单位）
@@ -41,40 +71,16 @@ class TronUtils extends Utils
     }
 
     /**
-     * toSun的别名（向后兼容）
-     *
-     * @param float $trx TRX数量
-     * @return int SUN数量
-     */
-    public static function toTron(float $trx): int
-    {
-        return self::toSun($trx);
-    }
-
-    /**
-     * fromSun的别名（向后兼容）
-     *
-     * @param int $sun SUN数量
-     * @return float TRX数量
-     */
-    public static function fromTron(int $sun): float
-    {
-        return self::fromSun($sun);
-    }
-
-    /**
      * 将Tron地址转换为十六进制格式
      *
      * @param string $address Tron地址
      * @return string 十六进制地址
-     * @throws TronException
      */
-    public static function addressToHex(string $address): string
+    public static function toHex(string $address): string
     {
-        if (!preg_match('/^T[A-Za-z0-9]{33}$/', $address)) {
-            throw new TronException('Invalid Tron address format');
+        if(strlen($address) == 42 && mb_strpos($address, '41') == 0) {
+            return $address;
         }
-
         return Base58Check::decode($address, 0, 3);
     }
 
@@ -85,12 +91,15 @@ class TronUtils extends Utils
      * @return string base58格式地址
      * @throws TronException
      */
-    public static function hexToAddress(string $hexAddress): string
+    public static function fromHex(string $hexAddress): string
     {
-        if (!parent::isHex($hexAddress)) {
-            throw new TronException('Invalid hex address');
+        if(!ctype_xdigit($hexAddress)) {
+            return $hexAddress;
         }
 
+        if(strlen($hexAddress) < 2 || (strlen($hexAddress) & 1) != 0) {
+            return '';
+        }
         return Base58Check::encode($hexAddress, 0, false);
     }
 
@@ -100,7 +109,7 @@ class TronUtils extends Utils
      * @param string $address 地址字符串
      * @return bool 是否有效
      */
-    public static function isValidTronAddress(string $address): bool
+    public static function isAddress(string $address): bool
     {
         if (strlen($address) !== self::ADDRESS_SIZE) {
             return false;
@@ -228,30 +237,6 @@ class TronUtils extends Utils
     }
 
     /**
-     * addressToHex的别名（向后兼容）
-     *
-     * @param string $address Tron地址
-     * @return string 十六进制地址
-     * @throws TronException
-     */
-    public static function address2HexString(string $address): string
-    {
-        return self::addressToHex($address);
-    }
-
-    /**
-     * hexToAddress的别名（向后兼容）
-     *
-     * @param string $hexAddress 十六进制地址
-     * @return string base58格式地址
-     * @throws TronException
-     */
-    public static function hexString2Address(string $hexAddress): string
-    {
-        return self::hexToAddress($hexAddress);
-    }
-
-    /**
      * 将字符串转换为UTF-8十六进制（别名）
      * 注意：这是一个简化的实现，用于向后兼容
      *
@@ -315,4 +300,155 @@ class TronUtils extends Utils
         }
         return $str;
     }
+
+    /**
+     * 从私钥获取地址
+     *
+     * 将私钥转换为对应地址。
+     * 这是最常用的私钥转地址方法。
+     *
+     * @param string $privateKey 私钥（可选）
+     *                          如不提供则使用当前账户私钥
+     *                          64字符十六进制字符串
+     * @param string $format 返回地址格式（可选，默认'base58'）
+     *                      - 'base58': 返回Base58格式地址
+     *                      - 'hex': 返回十六进制格式地址
+     *
+     * @return string 指定格式的地址字符串
+     *
+     * @throws TronException 当私钥未提供或格式无效时抛出
+     *
+     * @example
+     * // 获取Base58地址
+     * $address = $tronWeb->account->fromPrivateKey('private_key...');
+     * echo "Base58地址: " . $address;
+     *
+     * // 获取Hex地址
+     * $address = $tronWeb->account->fromPrivateKey('private_key...', 'hex');
+     * echo "Hex地址: " . $address;
+     *
+     * // 使用当前账户私钥
+     * $address = $tronWeb->account->fromPrivateKey();
+     *
+     * @see createWithPrivateKey() 创建完整账户对象
+     */
+    public static function fromPrivateKey(string $privateKey, string $format = 'base58'): string
+    {
+
+        if(!$privateKey) {
+            throw new TronException('Missing private key');
+        }
+        $ec = new \Elliptic\EC('secp256k1');
+        $priv = $ec->keyFromPrivate($privateKey);
+        $pubKeyHex = $priv->getPublic(false, "hex");
+
+        $pubKeyBin = hex2bin($pubKeyHex);
+        $addressHex = TronUtils::getAddressHex($pubKeyBin);
+        $addressBin = hex2bin($addressHex);
+        $addressBase58 = TronUtils::getBase58CheckAddress($addressBin);
+        if ($format === 'hex') {
+            return $addressHex;
+        }
+        return $addressBase58;
+    }
+
+    /**
+     * 从最小单位转换为指定精度的数值
+     *
+     * @param mixed $amount 金额（最小单位）
+     * @param int $decimals 小数位数，默认6位
+     * @return string 格式化后的金额字符串
+     */
+    public static function fromWei($amount, $decimals = 6): string
+    {
+        return number_format($amount / (10 ** $decimals), $decimals, '.', '');
+    }
+    
+    /**
+     * 转换科学记数法字符串为整数
+     * 适用于处理大数字符串，如2.0E+25
+     *
+     * @param mixed $sciNotation 科学记数法字符串或数字
+     * @return string 转换后的整数字符串
+     *
+     * @example
+     * TronUtils::toDecimal('2.0E+25') // returns '20000000000000000000000000'
+     * TronUtils::toDecimal('5e18')    // returns '5000000000000000000'
+     */
+    public static function toDecimal($sciNotation): string
+    {
+        if (is_array($sciNotation)) {
+            // 如果是数组，尝试查找常见的键名
+            $keys = ['balance', 'amount', 'value', 'amountIn', 'amountOut', 'result'];
+            foreach ($keys as $key) {
+                if (isset($sciNotation[$key])) {
+                    return self::toDecimal($sciNotation[$key]);
+                }
+            }
+            // 支持空键名数组（如 [''] => 1414389）
+            if (isset($sciNotation['']) && (is_numeric($sciNotation['']) || is_string($sciNotation['']))) {
+                return self::toDecimal($sciNotation['']);
+            }
+            // 如果包含数值键，使用第一个
+            foreach ($sciNotation as $value) {
+                if (is_numeric($value) || is_string($value)) {
+                    return self::toDecimal($value);
+                }
+            }
+            return '0';
+        }
+
+        $str = (string)$sciNotation;
+
+        // 如果是普通数字，直接返回
+        if (!preg_match('/[eE]/', $str)) {
+            // 移除可能的小数部分
+            if (strpos($str, '.') !== false) {
+                return preg_replace('/\.0*$/', '', rtrim($str, '0'));
+            }
+            return $str;
+        }
+
+        // 处理科学记数法
+        list($number, $exponent) = preg_split('/[eE]/', $str);
+        $exponent = (int)$exponent;
+
+        // 分离整数和小数部分
+        if (strpos($number, '.') !== false) {
+            list($integer, $fraction) = explode('.', $number);
+            $fraction = rtrim($fraction, '0');
+            $totalLength = strlen($integer) + strlen($fraction);
+
+            if ($exponent > 0) {
+                // 正指数：向右移动小数点
+                $moveRight = $exponent - strlen($fraction);
+                if ($moveRight >= 0) {
+                    return $integer . $fraction . str_repeat('0', $moveRight);
+                } else {
+                    return $integer . substr($fraction, 0, $exponent) . '.' . substr($fraction, $exponent);
+                }
+            } else {
+                // 负指数：向左移动小数点
+                $moveLeft = abs($exponent);
+                if ($moveLeft <= strlen($integer)) {
+                    return substr($integer, 0, -$moveLeft) . '.' . substr($integer, -$moveLeft) . $fraction;
+                } else {
+                    return '0.' . str_repeat('0', $moveLeft - strlen($integer)) . $integer . $fraction;
+                }
+            }
+        } else {
+            // 没有小数部分
+            if ($exponent > 0) {
+                return $number . str_repeat('0', $exponent);
+            } else {
+                $moveLeft = abs($exponent);
+                if ($moveLeft <= strlen($number)) {
+                    return substr($number, 0, -$moveLeft) . '.' . substr($number, -$moveLeft);
+                } else {
+                    return '0.' . str_repeat('0', $moveLeft - strlen($number)) . $number;
+                }
+            }
+        }
+    }
+
 }

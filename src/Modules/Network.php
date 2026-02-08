@@ -14,9 +14,9 @@ use Dsdcr\TronWeb\Support\TronUtils;
 class Network extends BaseModule
 {
     /**
-     * 列出Tron网络中的所有节点
+     * 获取Tron网络中的所有节点列表
      *
-     * @return array 节点列表
+     * @return array 节点列表，每个节点包含地址、端口等信息
      * @throws TronException
      */
     public function listNodes(): array
@@ -25,38 +25,38 @@ class Network extends BaseModule
     }
 
     /**
-     * 列出所有超级代表
+     * 获取Tron网络中所有超级代表（SR）列表
      *
-     * @return array 超级代表列表
+     * @return array 超级代表列表，包含代表地址、投票数、公钥等信息
      * @throws TronException
      */
-    public function listSuperRepresentatives(): array
+    public function listwitnesses(): array
     {
         return $this->request('wallet/listwitnesses');
     }
 
     /**
-     * 列出所有交易所
+     * 获取所有已注册的交易对信息
      *
-     * @return array 交易所列表
+     * @return array 交易所列表，包含交易对ID、交易对名称等信息
      * @throws TronException
      */
-    public function listExchanges(): array
+    public function getexchangelist(): array
     {
         return $this->request('wallet/getexchangelist');
     }
 
     /**
-     * 申请成为超级代表
+     * 申请成为超级代表（SR候选人）
      *
-     * @param string $url 代表URL
-     * @param string|null $address 申请者地址
+     * @param string $url 代表的网站URL
+     * @param string|null $address 申请者地址（可选，默认使用当前账户地址）
      * @return array 申请结果
      * @throws TronException
      */
-    public function applyForRepresentative(string $url, ?string $address = null): array
+    public function applyForSuperRepresentative(string $url, ?string $address = null): array
     {
-        $addressHex = $address ? TronUtils::addressToHex($address) : $this->getDefaultAddress()['hex'];
+        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
         return $this->request('wallet/applyforsuperrepresentative', [
             'owner_address' => $addressHex,
@@ -65,45 +65,32 @@ class Network extends BaseModule
     }
 
     /**
-     * applyForRepresentative的别名（向后兼容）
+     * 获取距离下次维护周期的时间
      *
-     * @param string $address 申请者地址
-     * @param string $url 代表URL
-     * @return array 申请结果
+     * @return float 距离下次维护的时间（单位：秒）
      * @throws TronException
      */
-    public function applyForSuperRepresentative(string $address, string $url): array
-    {
-        return $this->applyForRepresentative($url, $address);
-    }
-
-    /**
-     * 获取距离下次投票周期的时间
-     *
-     * @return float 时间（秒）
-     * @throws TronException
-     */
-    public function timeUntilNextVoteCycle(): float
+    public function getnextmaintenancetime(): float
     {
         $response = $this->request('wallet/getnextmaintenancetime');
         return (float)($response['num'] ?? 0);
     }
 
     /**
-     * 获取投票奖励比例
+     * 获取当前投票奖励分配比例信息
      *
-     * @return array 奖励比例信息
+     * @return array 奖励比例信息，包含各角色获得投票奖励的比例
      * @throws TronException
      */
-    public function getVoteRewardRatio(): array
+    public function getrewardinfo(): array
     {
         return $this->request('wallet/getrewardinfo');
     }
 
     /**
-     * 获取链参数
+     * 获取区块链网络参数列表
      *
-     * @return array 链参数
+     * @return array 链参数列表，包含所有可调整的网络参数
      * @throws TronException
      */
     public function getChainParameters(): array
@@ -112,15 +99,17 @@ class Network extends BaseModule
     }
 
     /**
-     * 获取网络统计信息
+     * 获取当前网络综合统计信息
      *
-     * @return array 网络统计信息
+     * 整合节点数、超级代表数和链参数等信息
+     *
+     * @return array 网络统计信息，包含总节点数、超级代表数和链参数等
      * @throws TronException
      */
     public function getNetworkStats(): array
     {
         $chainParams = $this->getChainParameters();
-        $witnesses = $this->listSuperRepresentatives();
+        $witnesses = $this->listwitnesses();
         $nodes = $this->listNodes();
 
         return [
@@ -132,9 +121,9 @@ class Network extends BaseModule
     }
 
     /**
-     * 获取区块奖励信息
+     * 获取区块奖励相关信息
      *
-     * @return array 区块奖励信息
+     * @return array 区块奖励信息，包含超级代表佣金比例等
      * @throws TronException
      */
     public function getBlockRewardInfo(): array
@@ -143,10 +132,10 @@ class Network extends BaseModule
     }
 
     /**
-     * 通过ID获取提案信息
+     * 根据提案ID获取提案详细信息
      *
-     * @param int $proposalID 提案ID
-     * @return array 提案信息
+     * @param int $proposalID 提案ID（必须是正整数）
+     * @return array 提案信息，包含提案内容、参数修改建议等
      * @throws TronException
      */
     public function getProposal(int $proposalID): array
@@ -161,9 +150,9 @@ class Network extends BaseModule
     }
 
     /**
-     * 列出所有网络修改提案
+     * 获取所有待投票的网络治理提案
      *
-     * @return array 提案列表
+     * @return array 提案列表，包含所有活跃的提案信息
      * @throws TronException
      */
     public function listProposals(): array
@@ -173,10 +162,11 @@ class Network extends BaseModule
     }
 
     /**
-     * 获取可用的网络修改提案参数
-     * 列出所有可用于网络修改提案的链参数
+     * 获取可用于提案的网络参数列表
      *
-     * @return array 可用参数列表
+     * 列出所有可以提交提案修改的链参数及其当前值
+     *
+     * @return array 可用参数列表，每个元素包含参数键、值和中文名称
      * @throws TronException
      */
     public function getProposalParameters(): array
@@ -199,10 +189,10 @@ class Network extends BaseModule
     }
 
     /**
-     * 获取参数名称（内部方法）
+     * 获取参数的中文名称（内部方法）
      *
-     * @param string $key 参数键
-     * @return string 参数名称
+     * @param string $key 参数键名
+     * @return string 参数的中文描述名称
      */
     private function getParameterName(string $key): string
     {
@@ -245,10 +235,10 @@ class Network extends BaseModule
     }
 
     /**
-     * 通过ID获取交易所信息
+     * 根据交易所ID获取交易对详细信息
      *
-     * @param int $exchangeID 交易所ID
-     * @return array 交易所信息
+     * @param int $exchangeID 交易所ID（必须是正整数）
+     * @return array 交易所信息，包含交易对双方、交易数量等
      * @throws TronException
      */
     public function getExchangeByID(int $exchangeID): array
@@ -263,10 +253,10 @@ class Network extends BaseModule
     }
 
     /**
-     * 获取分页的交易所列表
+     * 分页获取交易对列表
      *
-     * @param int $limit 每页数量（默认10）
-     * @param int $offset 偏移量（默认0）
+     * @param int $limit 每页数量（范围1-100，默认10）
+     * @param int $offset 偏移量（必须>=0，默认0）
      * @return array 分页的交易所列表
      * @throws TronException
      */

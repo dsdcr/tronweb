@@ -111,11 +111,13 @@ class HdWallet
      * @param string $path BIP44派生路径
      * @return array 包含私钥、公钥、地址等信息
      */
-    public static function mnemonicToAccount(
-        string $mnemonic,
+    public static function fromMnemonic(
+        ?string $mnemonic = null,
+        string $path = "m/44'/195'/0'/0/0",
         string $passphrase = '',
-        string $path = "m/44'/195'/0'/0/0"
+        int $wordCount= 12
     ): array {
+        $mnemonic = $mnemonic ?? \Dsdcr\TronWeb\Support\Bip39::generateMnemonic($wordCount);
         // 验证助记词
         if (!Bip39::validateMnemonic($mnemonic)) {
             throw new Exception("Invalid mnemonic phrase");
@@ -173,6 +175,6 @@ class HdWallet
         $mnemonic = Bip39::generateMnemonic($wordCount);
 
         // 生成账户
-        return self::mnemonicToAccount($mnemonic, $passphrase, $path);
+        return self::fromMnemonic($mnemonic, $passphrase, $path);
     }
 }

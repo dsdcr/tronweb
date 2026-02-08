@@ -174,32 +174,4 @@ class Secp256k1
 
         return 0;
     }
-
-    /**
-     * 从公钥生成地址
-     *
-     * @param string $publicKey 公钥（十六进制格式）
-     * @return string 地址（十六进制格式）
-     */
-    public function getAddressFromPublicKey(string $publicKey): string
-    {
-        // 移除公钥前缀（如果有）
-        $publicKey = str_replace('0x', '', $publicKey);
-
-        if (strlen($publicKey) !== 130) {
-            throw new \InvalidArgumentException('Invalid public key length');
-        }
-
-        // 从公钥生成地址哈希
-        $publicKeyBytes = hex2bin($publicKey);
-        $hash = hash('sha3-256', substr($publicKeyBytes, 1)); // 跳过04前缀
-
-        // 取最后20个字节作为地址
-        $addressBytes = substr(hex2bin($hash), -20);
-
-        // 添加TRON地址前缀（0x41）
-        $tronAddress = hex2bin('41') . $addressBytes;
-
-        return bin2hex($tronAddress);
-    }
 }
