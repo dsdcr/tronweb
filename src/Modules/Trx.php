@@ -182,31 +182,58 @@ class Trx extends BaseModule
      * @throws TronException 当交易已签名、包含错误或私钥未设置时抛出
      *
      * @example
-     * // 构建交易后签名
-     * $transaction = $transactionBuilder->createSomeTransaction();
-     * $signedTx = $trx->signTransaction($transaction);
+     * 签名交易或消息
      *
-     * @see Secp::sign() 签名算法实现
-     * @see sendRawTransaction() 广播已签名的交易
+     * 支持普通交易签名和多重签名。
+     * 如果是多重签名模式，签名会被追加到签名列表中而不是覆盖。
+     *
+     * @param array $transaction 交易数据
+     * @param string|null $privateKey 私钥（可选，默认使用TronWeb实例的私钥）
+     * @param bool $multisig 是否多重签名模式（可选，默认false）
+     * @return array 签名后的交易
+     * @throws TronException
      */
-    public function signTransaction(array $transaction, array $options = []): array
+    public function signTransaction(array $transaction, ?string $privateKey = null, bool $multisig = false): array
     {
         if (isset($transaction['Error'])) {
             throw new TronException($transaction['Error']);
         }
 
-        if (isset($transaction['signature'])) {
+        // 非多重签名模式下，检查交易是否已签名
+        if (!$multisig && isset($transaction['signature'])) {
             throw new TronException('Transaction is already signed');
         }
 
-        $privateKey = $this->tronWeb->getPrivateKey();
+        // 获取私钥
+        $privateKey = $privateKey ?: $this->tronWeb->getPrivateKey();
+        if (!$privateKey) {
+            throw new TronException('No private key provided');
+        }
+
+        // 非多重签名模式下，验证私钥是否与交易中的地址匹配
+        if (!$multisig) {
+            $address = strtolower($this->tronWeb->fromPrivateKey($privateKey));
+            $ownerAddress = $transaction['raw_data']['contract'][0]['parameter']['value']['owner_address'] ?? null;
+
+            if ($ownerAddress) {
+                // 处理地址格式（可能有0x前缀）
+                $ownerAddress = strtolower(preg_replace('/^0x/', '', $ownerAddress));
+                if ($address !== $ownerAddress) {
+                    throw new TronException('Private key does not match address in transaction');
+                }
+            }
+        }
+
+        // 生成签名
         $signature = \Dsdcr\TronWeb\Support\Secp::sign($transaction['txID'], $privateKey);
 
-        $transaction['signature'] = [$signature];
-
-        // 应用选项
-        if (!empty($options)) {
-            $transaction = array_merge($transaction, $options);
+        // 根据是否是多重签名模式处理签名
+        if ($multisig && isset($transaction['signature'])) {
+            // 多重签名模式：追加签名
+            $transaction['signature'][] = $signature;
+        } else {
+            // 普通模式：设置签名
+            $transaction['signature'] = [$signature];
         }
 
         return $transaction;
@@ -646,10 +673,13 @@ class Trx extends BaseModule
     /**
      * 多签交易方法
      *
+     * 使用本地签名方式进行多重签名。
+     * 支持权限验证、签名追加、重复签名检测等功能。
+     *
      * @param array $transaction 交易数据
-     * @param string|null $privateKey 私钥
-     * @param int $permissionId 权限ID
-     * @return array 签名结果
+     * @param string|null $privateKey 私钥（可选，默认使用TronWeb实例的私钥）
+     * @param int $permissionId 权限ID（可选，默认0表示Owner权限）
+     * @return array 签名后的交易
      * @throws TronException
      */
     public function multiSign(array $transaction, ?string $privateKey = null, int $permissionId = 0): array
@@ -664,23 +694,20 @@ class Trx extends BaseModule
             throw new TronException('Invalid transaction provided');
         }
 
-        // 如果权限ID存在于交易中或用户传递了权限ID，进行完整的权限验证
-        if ((!isset($transaction['raw_data']['contract'][0]['Permission_id']) && $permissionId > 0) ||
-            (isset($transaction['raw_data']['contract'][0]['Permission_id']) &&
-             $transaction['raw_data']['contract'][0]['Permission_id'] != $permissionId)) {
-
+        // 只有在交易中没有权限ID且用户提供了权限ID时才进行完整权限验证
+        if (!isset($transaction['raw_data']['contract'][0]['Permission_id']) && $permissionId > 0) {
             // 设置权限ID
             $transaction['raw_data']['contract'][0]['Permission_id'] = $permissionId;
 
-            // 检查私钥是否在权限列表中
+            // 检查私钥是否在权限列表中（通过getSignWeight验证）
             $address = strtolower($this->tronWeb->fromPrivateKey($privateKey));
-
             $signWeight = $this->getSignWeight($transaction, ['permissionId' => $permissionId]);
 
             if (isset($signWeight['result']['code']) && $signWeight['result']['code'] === 'PERMISSION_ERROR') {
                 throw new TronException($signWeight['result']['message'] ?? 'Permission error');
             }
 
+            // 验证私钥是否在权限列表中
             $foundKey = false;
             if (isset($signWeight['permission']['keys'])) {
                 foreach ($signWeight['permission']['keys'] as $key) {
@@ -695,6 +722,7 @@ class Trx extends BaseModule
                 throw new TronException('Private key has no permission to sign');
             }
 
+            // 检查是否已签名
             if (isset($signWeight['approved_list']) && in_array($address, $signWeight['approved_list'])) {
                 throw new TronException('Private key already signed transaction');
             }
@@ -708,10 +736,8 @@ class Trx extends BaseModule
             }
         }
 
-        return $this->request('wallet/multisign', [
-            'transaction' => $transaction,
-            'privateKey' => $privateKey
-        ], 'post');
+        // 使用本地签名（多重签名模式，跳过地址验证）
+        return $this->signTransaction($transaction, $privateKey, true);
     }
 
 
