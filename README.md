@@ -4,7 +4,7 @@
 
 [![Latest Stable Version](https://poser.pugx.org/dsdcr/tronweb/version)](https://packagist.org/packages/dsdcr/tronweb)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE)
-[![Total Downloads](https://img.shields.io/packagist/dt/dsdcr/tronweb.svg?style=flat-square)](https://packagist.org/packages/dsdcr/tronweb)))
+[![Total Downloads](https://img.shields.io/packagist/dt/dsdcr/tronweb.svg?style=flat-square)](https://packagist.org/packages/dsdcr/tronweb)
 
 ## 📦 安装
 
@@ -473,11 +473,6 @@ php vendor/bin/phpunit
 | `examples/network_examples.php` | 网络节点、提案、交易所 |
 | `examples/utils_examples.php` | 地址转换、单位换算、格式验证 |
 
-### 运行所有示例
-
-```bash
-php examples/run_all_examples.php
-```
 
 ## 🔒 安全提示
 
@@ -510,7 +505,7 @@ php examples/run_all_examples.php
 
 ## 🆕 版本历史
 
-### v2.0.0 (2026-02-08)
+### v2.0.0 (2026-02-03)
 - ✅ 完整的类型系统实现
 - ✅ 135+ 个公开方法
 - ✅ 9 个核心模块（Trx、Account、Contract、Token、Resource、Network、Utils、TransactionBuilder）
@@ -531,4 +526,5 @@ php examples/run_all_examples.php
 
 ---
 
+**文档版本**: 1.0.0  
 **最后更新**: 2026-02-08  
