@@ -20,7 +20,7 @@ trait ManagesTronscan
 
         // 检查是否在模块中使用
         if (method_exists($this, 'request')) {
-            return $this->request('api/transaction', $options);
+            return $this->tronWeb->request('api/transaction', $options);
         }
 
         // 如果在 TronWeb 中使用，通过 fullNode provider

@@ -21,7 +21,7 @@ use Dsdcr\TronWeb\Exception\TronException;
  *
  * 使用说明：
  * - 子类通过$this->tronWeb访问主实例
- * - 使用$this->request()发起API调用
+ * - 使用$this->tronWeb->request()发起API调用
  * - 自动处理提供者类型路由（全节点、固态节点等）
  *
  * @package Dsdcr\TronWeb\Modules

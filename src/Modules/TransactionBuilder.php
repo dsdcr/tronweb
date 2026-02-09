@@ -702,7 +702,7 @@ class TransactionBuilder
      *
      * @param string $receiverAddress 资源接收者地址
      * @param float|int $amount 委托金额（单位：TRX）
-     * @param string $resource 资源类型（'BANDWIDTH'或'ENERGY'）
+     * @param string $resource 资源类型（带宽：'BANDWIDTH'、能量：'ENERGY'）
      * @param string|null $address 委托方地址（可选，默认使用当前账户地址）
      * @param bool $lock 是否锁定委托资源
      * @param int|null $lockPeriod 锁定周期（单位：天）

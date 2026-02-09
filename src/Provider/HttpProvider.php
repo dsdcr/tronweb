@@ -392,7 +392,7 @@ class HttpProvider implements HttpProviderInterface
     {
         try {
             // 尝试查询当前区块
-            $response = $this->request('wallet/getnowblock');
+            $response = $this->tronWeb->request('wallet/getnowblock');
 
             // 检查响应是否包含区块信息
             return isset($response['blockID']) || isset($response['block_header']);

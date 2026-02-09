@@ -124,7 +124,7 @@ class Contract extends BaseModule
             throw new TronException('call_value can only equal to 0 if contract is not payable');
         }
 
-        return $this->request('wallet/deploycontract', [
+        return $this->tronWeb->request('wallet/deploycontract', [
             'owner_address' => TronUtils::toHex($address),
             'fee_limit' => $feeLimit,
             'call_value' => $callValue,
@@ -236,7 +236,7 @@ class Contract extends BaseModule
         }
 
         $routeParams = implode('/', $routeParams);
-        return $this->request("event/contract/{$routeParams}?since={$sinceTimestamp}", [], 'eventServer');
+        return $this->tronWeb->request("event/contract/{$routeParams}?since={$sinceTimestamp}", [], 'eventServer');
     }
 
     /**
@@ -282,7 +282,7 @@ class Contract extends BaseModule
             throw new TronException('No event server configured');
         }
 
-        return $this->request("event/transaction/{$transactionID}", [], 'eventServer');
+        return $this->tronWeb->request("event/transaction/{$transactionID}", [], 'eventServer');
     }
 
     /**
@@ -324,7 +324,7 @@ class Contract extends BaseModule
      */
     public function getInfo(string $contractAddress): array
     {
-        return $this->request('wallet/getcontract', [
+        return $this->tronWeb->request('wallet/getcontract', [
             'value' => TronUtils::toHex($contractAddress)
         ]);
     }

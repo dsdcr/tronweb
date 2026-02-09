@@ -75,7 +75,7 @@ class Trx extends BaseModule
     {
         $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        $account = $this->request('walletsolidity/getaccount', [
+        $account = $this->tronWeb->request('walletsolidity/getaccount', [
             'address' => $addressHex
         ]);
 
@@ -277,7 +277,7 @@ class Trx extends BaseModule
             $signedTransaction = array_merge($signedTransaction, $options);
         }
 
-        return $this->request('wallet/broadcasttransaction', $signedTransaction);
+        return $this->tronWeb->request('wallet/broadcasttransaction', $signedTransaction);
     }
 
     /**
@@ -307,7 +307,7 @@ class Trx extends BaseModule
      */
     public function getCurrentBlock(): array
     {
-        return $this->request('wallet/getnowblock');
+        return $this->tronWeb->request('wallet/getnowblock');
     }
 
     /**
@@ -382,7 +382,7 @@ class Trx extends BaseModule
      */
     public function getBlockByHash(string $blockHash): array
     {
-        $block = $this->request('wallet/getblockbyid', [
+        $block = $this->tronWeb->request('wallet/getblockbyid', [
             'value' => $blockHash
         ]);
 
@@ -406,7 +406,7 @@ class Trx extends BaseModule
             throw new TronException('Invalid block number provided');
         }
 
-        $block = $this->request('wallet/getblockbynum', [
+        $block = $this->tronWeb->request('wallet/getblockbynum', [
             'num' => $blockID
         ]);
 
@@ -447,7 +447,7 @@ class Trx extends BaseModule
      */
     public function getTransaction(string $transactionID): array
     {
-        return $this->request('wallet/gettransactionbyid', [
+        return $this->tronWeb->request('wallet/gettransactionbyid', [
             'value' => $transactionID
         ]);
     }
@@ -485,7 +485,7 @@ class Trx extends BaseModule
      */
     public function getTransactionInfo(string $transactionID): array
     {
-        return $this->request('wallet/gettransactioninfobyid', [
+        return $this->tronWeb->request('wallet/gettransactioninfobyid', [
             'value' => $transactionID
         ]);
     }
@@ -499,7 +499,7 @@ class Trx extends BaseModule
      */
     public function getConfirmedTransaction(string $transactionID): array
     {
-        return $this->request('walletsolidity/gettransactionbyid', [
+        return $this->tronWeb->request('walletsolidity/gettransactionbyid', [
             'value' => $transactionID
         ], 'post');
     }
@@ -519,7 +519,7 @@ class Trx extends BaseModule
             throw new TronException('Invalid address provided');
         }
 
-        return $this->request('wallet/getaccount', [
+        return $this->tronWeb->request('wallet/getaccount', [
             'address' => $addressHex
         ]);
     }
@@ -665,7 +665,7 @@ class Trx extends BaseModule
     public function getAccount(string $address): array
     {
         $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
-        return $this->request('walletsolidity/getaccount', [
+        return $this->tronWeb->request('walletsolidity/getaccount', [
             'address' => $addressHex
         ]);
     }
@@ -765,7 +765,7 @@ class Trx extends BaseModule
             $transaction['raw_data']['contract'][0]['Permission_id'] = 0;
         }
 
-        return $this->request('wallet/getsignweight', $transaction, 'post');
+        return $this->tronWeb->request('wallet/getsignweight', $transaction, 'post');
     }
 
     /**
@@ -778,7 +778,7 @@ class Trx extends BaseModule
      */
     public function getApprovedList(array $transaction, array $options = []): array
     {
-        return $this->request('wallet/getapprovedlist', [
+        return $this->tronWeb->request('wallet/getapprovedlist', [
             'transaction' => $transaction
         ], 'post');
     }
@@ -801,7 +801,7 @@ class Trx extends BaseModule
             $params['toAddress'] = TronUtils::toHex($toAddress);
         }
 
-        return $this->request('wallet/getdelegatedresource', $params);
+        return $this->tronWeb->request('wallet/getdelegatedresource', $params);
     }
 
     /**
@@ -812,7 +812,7 @@ class Trx extends BaseModule
      */
     public function getChainParameters(): array
     {
-        return $this->request('wallet/getchainparameters');
+        return $this->tronWeb->request('wallet/getchainparameters');
     }
 
     /**
@@ -826,7 +826,7 @@ class Trx extends BaseModule
     {
         $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        return $this->request('walletsolidity/getreward', [
+        return $this->tronWeb->request('walletsolidity/getreward', [
             'address' => $addressHex
         ]);
     }
@@ -966,7 +966,7 @@ class Trx extends BaseModule
         $endpointPrefix = $options['confirmed'] ? 'walletsolidity' : 'wallet';
 
         $data = ['address' => $addr];
-        $result = $this->request("{$endpointPrefix}/getReward", $data, $providerType);
+        $result = $this->tronWeb->request("{$endpointPrefix}/getReward", $data, $providerType);
 
         if (!isset($result['reward'])) {
             throw new TronException('Reward not found');
@@ -999,7 +999,7 @@ class Trx extends BaseModule
         $endpointPrefix = $options['confirmed'] ? 'walletsolidity' : 'wallet';
 
         $data = ['address' => $addr];
-        $result = $this->request("{$endpointPrefix}/getBrokerage", $data, $providerType);
+        $result = $this->tronWeb->request("{$endpointPrefix}/getBrokerage", $data, $providerType);
 
         if (!isset($result['brokerage'])) {
             throw new TronException('Brokerage not found');
@@ -1033,7 +1033,7 @@ class Trx extends BaseModule
     public function getCurrentRefBlockParams(): array
     {
         try {
-            $block = $this->request('wallet/getblock', ['detail' => false], 'post');
+            $block = $this->tronWeb->request('wallet/getblock', ['detail' => false], 'post');
 
             if (!isset($block['block_header']['raw_data']['number']) ||
                 !isset($block['block_header']['raw_data']['timestamp']) ||
@@ -1082,7 +1082,7 @@ class Trx extends BaseModule
      */
     public function getNodeInfo(): array
     {
-        return $this->request('wallet/getnodeinfo', [], 'post');
+        return $this->tronWeb->request('wallet/getnodeinfo', [], 'post');
     }
 
     /**
@@ -1181,10 +1181,10 @@ class Trx extends BaseModule
             throw new TronException('Invalid address provided');
         }
 
-        $response = $this->request('wallet/getaccountresource', [
+        $response = $this->tronWeb->request('wallet/getaccountresource', [
             'address' => $addressHex
         ], 'post');
-
+        return $response;
         return [
             'energy_limit' => $response['EnergyLimit'] ?? 0,
             'energy_used' => $response['EnergyUsed'] ?? 0,
@@ -1318,7 +1318,7 @@ class Trx extends BaseModule
             throw new TronException('Invalid token ID provided');
         }
 
-        $response = $this->request('wallet/getassetissuebyname', [
+        $response = $this->tronWeb->request('wallet/getassetissuebyname', [
             'value' => TronUtils::toUtf8($tokenID)
         ], 'post');
 

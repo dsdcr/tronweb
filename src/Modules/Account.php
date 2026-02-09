@@ -128,7 +128,7 @@ class Account extends BaseModule
     public function getAccount(?string $address = null): array
     {
         $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
-        return $this->request('walletsolidity/getaccount', [
+        return $this->tronWeb->request('walletsolidity/getaccount', [
             'address' => $addressHex
         ]);
     }
@@ -149,7 +149,7 @@ class Account extends BaseModule
      */
     public function getaccounts(string $address): array
     {
-        return $this->request("v1/accounts/{$address}", [], 'get');
+        return $this->tronWeb->request("v1/accounts/{$address}", [], 'get');
     }
 
     /**
@@ -187,7 +187,7 @@ class Account extends BaseModule
             $address = TronUtils::toHex($address);
         }
 
-        return $this->request('wallet/validateaddress', [
+        return $this->tronWeb->request('wallet/validateaddress', [
             'address' => $address
         ]);
     }
@@ -226,7 +226,7 @@ class Account extends BaseModule
     {
         $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        return $this->request('wallet/getaccountresource', [
+        return $this->tronWeb->request('wallet/getaccountresource', [
             'address' => $addressHex
         ]);
     }
@@ -263,7 +263,7 @@ class Account extends BaseModule
     {
         $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        $account = $this->request('walletsolidity/getaccount', [
+        $account = $this->tronWeb->request('walletsolidity/getaccount', [
             'address' => $addressHex
         ]);
 
@@ -313,14 +313,14 @@ class Account extends BaseModule
 
         switch ($direction) {
             case 'to':
-                return $this->request('walletextension/gettransactionstoaddress', [
+                return $this->tronWeb->request('walletextension/gettransactionstoaddress', [
                     'address' => $addressHex,
                     'limit' => $limit,
                     'offset' => $offset
                 ]);
 
             case 'from':
-                return $this->request('walletextension/gettransactionsfromaddress', [
+                return $this->tronWeb->request('walletextension/gettransactionsfromaddress', [
                     'address' => $addressHex,
                     'limit' => $limit,
                     'offset' => $offset
@@ -328,7 +328,7 @@ class Account extends BaseModule
 
             case 'all':
             default:
-                return $this->request('walletextension/gettransactionsrelated', [
+                return $this->tronWeb->request('walletextension/gettransactionsrelated', [
                     'address' => $addressHex,
                     'direction' => 'all',
                     'limit' => $limit,
@@ -372,7 +372,7 @@ class Account extends BaseModule
     {
         $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        return $this->request('wallet/updateaccount', [
+        return $this->tronWeb->request('wallet/updateaccount', [
             'account_name' => TronUtils::toUtf8($accountName),
             'owner_address' => $addressHex
         ]);
@@ -415,7 +415,7 @@ class Account extends BaseModule
         $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
         $newAccountHex = TronUtils::toHex($newAccountAddress);
 
-        return $this->request('wallet/createaccount', [
+        return $this->tronWeb->request('wallet/createaccount', [
             'owner_address' => $addressHex,
             'account_address' => $newAccountHex
         ]);

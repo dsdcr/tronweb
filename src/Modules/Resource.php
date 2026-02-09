@@ -312,16 +312,14 @@ class Resource extends BaseModule
             throw new TronException('Invalid to address provided');
         }
 
-        $providerType = $options['confirmed'] ? 'solidityNode' : 'fullNode';
         $endpointPrefix = $options['confirmed'] ? 'walletsolidity' : 'wallet';
 
-        return $this->request(
+        return $this->tronWeb->request(
             "{$endpointPrefix}/getdelegatedresourcev2",
             [
                 'fromAddress' => $fromAddr,
                 'toAddress' => $toAddr,
-            ],
-            $providerType
+            ]
         );
     }
 
@@ -359,15 +357,13 @@ class Resource extends BaseModule
             throw new TronException('Invalid address provided');
         }
 
-        $providerType = $options['confirmed'] ? 'solidityNode' : 'fullNode';
         $endpointPrefix = $options['confirmed'] ? 'walletsolidity' : 'wallet';
 
-        return $this->request(
+        return $this->tronWeb->request(
             "{$endpointPrefix}/getdelegatedresourceaccountindexv2",
             [
                 'value' => $addr,
-            ],
-            $providerType
+            ]
         );
     }
 
@@ -415,17 +411,15 @@ class Resource extends BaseModule
             throw new TronException('Invalid resource provided: Expected "BANDWIDTH" or "ENERGY"');
         }
 
-        $providerType = $options['confirmed'] ? 'solidityNode' : 'fullNode';
         $endpointPrefix = $options['confirmed'] ? 'walletsolidity' : 'wallet';
         $resourceType = $resource === 'ENERGY' ? 1 : 0;
 
-        return $this->request(
+        return $this->tronWeb->request(
             "{$endpointPrefix}/getcandelegatedmaxsize",
             [
                 'owner_address' => $addr,
                 'type' => $resourceType,
-            ],
-            $providerType
+            ]
         );
     }
 
@@ -460,15 +454,13 @@ class Resource extends BaseModule
             throw new TronException('Invalid address provided');
         }
 
-        $providerType = $options['confirmed'] ? 'solidityNode' : 'fullNode';
         $endpointPrefix = $options['confirmed'] ? 'walletsolidity' : 'wallet';
 
-        return $this->request(
+        return $this->tronWeb->request(
             "{$endpointPrefix}/getavailableunfreezecount",
             [
                 'owner_address' => $addr,
-            ],
-            $providerType
+            ]
         );
     }
 
@@ -519,16 +511,14 @@ class Resource extends BaseModule
             throw new TronException('Invalid timestamp provided');
         }
 
-        $providerType = $options['confirmed'] ? 'solidityNode' : 'fullNode';
         $endpointPrefix = $options['confirmed'] ? 'walletsolidity' : 'wallet';
 
-        return $this->request(
+        return $this->tronWeb->request(
             "{$endpointPrefix}/getcanwithdrawunfreezeamount",
             [
                 'owner_address' => $addr,
                 'timestamp' => $ts,
-            ],
-            $providerType
+            ]
         );
     }
 
@@ -552,15 +542,30 @@ class Resource extends BaseModule
      *
      * @see getEnergyPrices() 查询能量价格
      */
-    public function getBandwidthPrices(): string
+    public function getBandwidthPrices(): array
     {
-        $result = $this->request('wallet/getbandwidthprices', [], 'fullNode');
+        $result = $this->tronWeb->request('wallet/getbandwidthprices',[],'get');
 
+        $priceMap = [];
         if (!isset($result['prices'])) {
             throw new TronException('Bandwidth prices not found');
+        }else{
+
+            if (!empty($result['prices']) && strpos($result['prices'], ':') !== false) {
+                $priceItems = explode(',', $result['prices']);
+                foreach ($priceItems as $item) {
+                    $parts = explode(':', $item);
+                    if (count($parts) === 2) {
+                        $timestamp = $parts[0];
+                        $date = $timestamp==0?0:date('Y-m-d H:i:s', $timestamp / 1000);
+                        $price = (float)$parts[1];
+                        $priceMap['prices'][$date] = $price;
+                    }
+                }
+            }
         }
 
-        return $result['prices'];
+        return $priceMap;
     }
 
     /**
@@ -585,7 +590,7 @@ class Resource extends BaseModule
      */
     public function getEnergyPrices(): string
     {
-        $result = $this->request('wallet/getenergyprices', [], 'fullNode');
+        $result = $this->tronWeb->request('wallet/getenergyprices',[],'get');
 
         if (!isset($result['prices'])) {
             throw new TronException('Energy prices not found');

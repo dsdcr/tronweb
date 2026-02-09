@@ -343,7 +343,7 @@ class Token extends BaseModule
     {
         $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        return $this->request('wallet/getassetissuebyaccount', [
+        return $this->tronWeb->request('wallet/getassetissuebyaccount', [
             'address' => $addressHex
         ]);
     }
@@ -379,7 +379,7 @@ class Token extends BaseModule
      */
     public function getFromName(string $tokenName): array
     {
-        return $this->request('wallet/getassetissuebyname', [
+        return $this->tronWeb->request('wallet/getassetissuebyname', [
             'value' => TronUtils::stringToHex($tokenName)
         ]);
     }
@@ -408,7 +408,7 @@ class Token extends BaseModule
      */
     public function getById(string $tokenId): array
     {
-        return $this->request('wallet/getassetissuebyid', [
+        return $this->tronWeb->request('wallet/getassetissuebyid', [
             'value' => $tokenId
         ]);
     }
@@ -441,10 +441,10 @@ class Token extends BaseModule
     public function list(int $limit = 0, int $offset = 0): array
     {
         if ($limit <= 0) {
-            return $this->request('wallet/getassetissuelist', [])['assetIssue'] ?? [];
+            return $this->tronWeb->request('wallet/getassetissuelist', [])['assetIssue'] ?? [];
         }
 
-        return $this->request('wallet/getpaginatedassetissuelist', [
+        return $this->tronWeb->request('wallet/getpaginatedassetissuelist', [
             'limit' => $limit,
             'offset' => $offset
         ])['assetIssue'] ?? [];

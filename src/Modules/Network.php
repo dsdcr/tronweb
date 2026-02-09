@@ -21,7 +21,7 @@ class Network extends BaseModule
      */
     public function listNodes(): array
     {
-        return $this->request('wallet/listnodes');
+        return $this->tronWeb->request('wallet/listnodes');
     }
 
     /**
@@ -32,7 +32,7 @@ class Network extends BaseModule
      */
     public function listwitnesses(): array
     {
-        return $this->request('wallet/listwitnesses');
+        return $this->tronWeb->request('wallet/listwitnesses');
     }
 
     /**
@@ -43,7 +43,7 @@ class Network extends BaseModule
      */
     public function getexchangelist(): array
     {
-        return $this->request('wallet/getexchangelist');
+        return $this->tronWeb->request('wallet/getexchangelist');
     }
 
     /**
@@ -58,7 +58,7 @@ class Network extends BaseModule
     {
         $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        return $this->request('wallet/applyforsuperrepresentative', [
+        return $this->tronWeb->request('wallet/applyforsuperrepresentative', [
             'owner_address' => $addressHex,
             'url' => TronUtils::stringToHex($url)
         ]);
@@ -72,7 +72,7 @@ class Network extends BaseModule
      */
     public function getnextmaintenancetime(): float
     {
-        $response = $this->request('wallet/getnextmaintenancetime');
+        $response = $this->tronWeb->request('wallet/getnextmaintenancetime');
         return (float)($response['num'] ?? 0);
     }
 
@@ -84,7 +84,7 @@ class Network extends BaseModule
      */
     public function getrewardinfo(): array
     {
-        return $this->request('wallet/getrewardinfo');
+        return $this->tronWeb->request('wallet/getrewardinfo');
     }
 
     /**
@@ -95,7 +95,7 @@ class Network extends BaseModule
      */
     public function getChainParameters(): array
     {
-        return $this->request('wallet/getchainparameters');
+        return $this->tronWeb->request('wallet/getchainparameters');
     }
 
     /**
@@ -128,7 +128,7 @@ class Network extends BaseModule
      */
     public function getBlockRewardInfo(): array
     {
-        return $this->request('wallet/getBrokerage');
+        return $this->tronWeb->request('wallet/getBrokerage');
     }
 
     /**
@@ -144,7 +144,7 @@ class Network extends BaseModule
             throw new TronException('Invalid proposalID provided');
         }
 
-        return $this->request('wallet/getproposalbyid', [
+        return $this->tronWeb->request('wallet/getproposalbyid', [
             'id' => $proposalID
         ], 'post');
     }
@@ -157,7 +157,7 @@ class Network extends BaseModule
      */
     public function listProposals(): array
     {
-        $response = $this->request('wallet/listproposals', [], 'post');
+        $response = $this->tronWeb->request('wallet/listproposals', [], 'post');
         return $response['proposals'] ?? [];
     }
 
@@ -247,7 +247,7 @@ class Network extends BaseModule
             throw new TronException('Invalid exchangeID provided');
         }
 
-        return $this->request('wallet/getexchangebyid', [
+        return $this->tronWeb->request('wallet/getexchangebyid', [
             'id' => $exchangeID
         ], 'post');
     }
@@ -270,7 +270,7 @@ class Network extends BaseModule
             throw new TronException('Offset must be non-negative');
         }
 
-        $response = $this->request('wallet/getpaginatedexchangelist', [
+        $response = $this->tronWeb->request('wallet/getpaginatedexchangelist', [
             'limit' => $limit,
             'offset' => $offset
         ], 'post');
