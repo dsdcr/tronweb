@@ -1,26 +1,38 @@
 {
     "name": "dsdcr/tronweb",
-    "description": "A PHP API for interacting with Tron (Trx)",
+    "description": "专业的PHP SDK，用于与TRON波场区块链网络交互，提供HTTP API封装、智能合约部署与调用、TRC20代币管理、交易构建与签名功能",
     "license": "MIT",
     "type":   "library",
-    "homepage": "https://github.com/iexbase/tron-api",
+    "homepage": "https://github.com/dsdcr/tronweb",
+    "support": {
+        "issues": "https://github.com/dsdcr/tronweb/issues",
+        "source": "https://github.com/dsdcr/tronweb",
+        "docs": "https://github.com/dsdcr/tronweb/wiki"
+    },
     "authors": [
         {
-            "name": "Shamsudin Serderov",
-            "email": "steein.shamsudin@gmail.com"
+            "name": "dsdcr"
         }
     ],
     "keywords": [
         "dsdcr",
+        "TRON",
         "tronweb",
         "tron-lib",
         "tron-php",
         "tron-api",
-        "tron-rest-api"
+        "tron-rest-api",
+        "laravel",
+        "laravel-package",
+        "laravel-tron",
+        "blockchain",
+        "cryptocurrency",
+        "trx",
+        "trc20"
     ],
 
     "require": {
-        "php": ">=8.0",
+        "php": "^8.0",
         "guzzlehttp/guzzle": "^7.2",
         "simplito/elliptic-php": "^1.0",
         "ext-json": "*",
@@ -35,11 +47,16 @@
             "Dsdcr\\TronWeb\\": "src"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Dsdcr\\TronWeb\\Tests\\": "tests/"
+        }
+    },
 
     "config": {
         "sort-packages": true
     },
 
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "prefer-stable": true
 }
