@@ -34,7 +34,6 @@
     "require": {
         "php": "^8.0",
         "guzzlehttp/guzzle": "^7.2",
-        "simplito/elliptic-php": "^1.0",
         "ext-json": "*",
         "ext-bcmath": "*"
     },

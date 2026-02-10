@@ -77,10 +77,9 @@ class Account extends BaseModule
      */
     public function create(): TronAddress
     {
-        $ec = new \Elliptic\EC('secp256k1');
-        $key = $ec->genKeyPair();
-        $priv = $ec->keyFromPrivate($key->priv);
-        $pubKeyHex = $priv->getPublic(false, "hex");
+        $secp = new \Dsdcr\TronWeb\Support\Secp256K1();
+        $privateKey = $secp->generatePrivateKey();
+        $pubKeyHex = $secp->getPublicKey($privateKey);
 
         $pubKeyBin = hex2bin($pubKeyHex);
         $addressHex = TronUtils::getAddressHex($pubKeyBin);
@@ -88,7 +87,7 @@ class Account extends BaseModule
         $addressBase58 = TronUtils::getBase58CheckAddress($addressBin);
 
         return new TronAddress([
-            'private_key' => $priv->getPrivate('hex'),
+            'private_key' => $privateKey,
             'public_key' => $pubKeyHex,
             'address_hex' => $addressHex,
             'address_base58' => $addressBase58
@@ -449,9 +448,8 @@ class Account extends BaseModule
      */
     public function createWithPrivateKey(string $privateKey): TronAddress
     {
-        $ec = new \Elliptic\EC('secp256k1');
-        $key = $ec->keyFromPrivate($privateKey);
-        $pubKeyHex = $key->getPublic(false, "hex");
+        $secp = new \Dsdcr\TronWeb\Support\Secp256K1();
+        $pubKeyHex = $secp->getPublicKey($privateKey);
 
         $pubKeyBin = hex2bin($pubKeyHex);
         $addressHex = TronUtils::getAddressHex($pubKeyBin);

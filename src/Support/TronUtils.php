@@ -338,9 +338,8 @@ class TronUtils
         if(!$privateKey) {
             throw new TronException('Missing private key');
         }
-        $ec = new \Elliptic\EC('secp256k1');
-        $priv = $ec->keyFromPrivate($privateKey);
-        $pubKeyHex = $priv->getPublic(false, "hex");
+        $secp = new \Dsdcr\TronWeb\Support\Secp256K1();
+        $pubKeyHex = $secp->getPublicKey($privateKey);
 
         $pubKeyBin = hex2bin($pubKeyHex);
         $addressHex = TronUtils::getAddressHex($pubKeyBin);
@@ -363,7 +362,7 @@ class TronUtils
     {
         return number_format($amount / (10 ** $decimals), $decimals, '.', '');
     }
-    
+
     /**
      * 转换科学记数法字符串为整数
      * 适用于处理大数字符串，如2.0E+25

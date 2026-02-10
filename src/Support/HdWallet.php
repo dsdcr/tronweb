@@ -2,8 +2,7 @@
 namespace Dsdcr\TronWeb\Support;
 
 use Exception;
-use BN\BN;
-use Elliptic\EC;
+use Dsdcr\TronWeb\Support\Secp256K1;
 /**
  * HD钱包支持 (BIP32/BIP44)
  * 提供分层确定性钱包的密钥派生功能
@@ -61,11 +60,14 @@ class HdWallet
             // 硬化派生
             $data = "\x00" . $key . pack('N', $index);
         } else {
-            // 非硬化派生 - 使用压缩格式公钥
-            $ec = new EC('secp256k1');
-            $keyPair = $ec->keyFromPrivate(bin2hex($key));
-            $publicKeyHex = $keyPair->getPublic(true, 'hex');
-            $data = hex2bin($publicKeyHex) . pack('N', $index);
+            // 非硬化派生 - 使用压缩格式公钥（使用纯PHP实现）
+            $secp = new Secp256K1();
+            $privateKeyHex = bin2hex($key);
+            $publicKeyHex = $secp->getPublicKey($privateKeyHex);
+
+            // 获取压缩格式公钥（需要04前缀）
+            $compressedPubKey = '04' . $publicKeyHex; // 非压缩格式
+            $data = hex2bin($compressedPubKey) . pack('N', $index);
         }
 
         $I = hash_hmac('sha512', $data, $chain, true);
@@ -135,13 +137,12 @@ class HdWallet
         // 获取私钥十六进制
         $privateKeyHex = bin2hex($derived['key']);
 
-        // 生成公钥
-        $ec = new EC('secp256k1');
-        $keyPair = $ec->keyFromPrivate($privateKeyHex);
-        $publicKeyHex = $keyPair->getPublic(false, 'hex');
+        // 生成公钥（使用纯PHP实现）
+        $secp = new Secp256K1();
+        $publicKeyHex = $secp->getPublicKey($privateKeyHex);
 
         // 生成地址（使用现有的 TronUtils）
-        $pubKeyBin = hex2bin('04' . $publicKeyHex);
+        $pubKeyBin = hex2bin($publicKeyHex);
         $addressHex = \Dsdcr\TronWeb\Support\TronUtils::getAddressHex($pubKeyBin);
         $addressBin = hex2bin($addressHex);
         $addressBase58 = \Dsdcr\TronWeb\Support\TronUtils::getBase58CheckAddress($addressBin);

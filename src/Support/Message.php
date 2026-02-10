@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Dsdcr\TronWeb\Support;
 
 use Dsdcr\TronWeb\Exception\TronException;
+use Dsdcr\TronWeb\Support\Secp256K1;
 
 /**
  * TRON消息签名工具类
@@ -58,7 +59,7 @@ class Message
     {
         $messageHash = self::hashMessage($message, $useTronHeader);
 
-        $secp = new Secp256k1();
+        $secp = new Secp256K1();
         $signature = $secp->sign($messageHash, $privateKey);
 
         $r = str_pad($signature->getR(), 64, '0', STR_PAD_LEFT);
@@ -104,7 +105,7 @@ class Message
         $messageHash = self::hashMessage($message, $useTronHeader);
 
         // 恢复公钥
-        $secp = new Secp256k1();
+        $secp = new Secp256K1();
         $publicKey = $secp->recoverPublicKey($messageHash, $sig);
 
         if (!$publicKey) {
@@ -112,8 +113,7 @@ class Message
         }
 
         // 从公钥生成地址（使用现有的Account模块方法逻辑）
-        $secp = new Secp256k1();
-        $addressHex = $secp->getAddressFromPublicKey($publicKey);
+        $addressHex = TronUtils::getAddressHex($publicKey);
         return TronUtils::fromHex($addressHex);
     }
 

@@ -212,14 +212,18 @@ class Trx extends BaseModule
 
         // 非多重签名模式下，验证私钥是否与交易中的地址匹配
         if (!$multisig) {
-            $address = strtolower($this->tronWeb->fromPrivateKey($privateKey));
+            // 获取私钥对应的Base58地址
+            $base58Address = $this->tronWeb->fromPrivateKey($privateKey);
+            // 转换为十六进制格式
+            $hexAddress = strtolower($this->tronWeb->toHex($base58Address));
+
             $ownerAddress = $transaction['raw_data']['contract'][0]['parameter']['value']['owner_address'] ?? null;
 
             if ($ownerAddress) {
                 // 处理地址格式（可能有0x前缀）
                 $ownerAddress = strtolower(preg_replace('/^0x/', '', $ownerAddress));
-                if ($address !== $ownerAddress) {
-                    throw new TronException('Private key does not match address in transaction');
+                if ($hexAddress !== $ownerAddress) {
+                    throw new TronException("Private key does not match address in transaction. Expected: $hexAddress, Actual: $ownerAddress");
                 }
             }
         }
