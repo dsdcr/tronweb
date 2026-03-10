@@ -2,7 +2,6 @@
     "name": "dsdcr/tronweb",
     "description": "专业的PHP SDK，用于与TRON波场区块链网络交互，提供HTTP API封装、智能合约部署与调用、TRC20代币管理、交易构建与签名功能",
     "license": "MIT",
-    "version": "2.1.0",
     "type":   "library",
     "homepage": "https://github.com/dsdcr/tronweb",
     "support": {
