@@ -1,39 +1,42 @@
-name: PHP Composer
-
+name: Auto
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-permissions:
-  contents: read
+    branches:
+      - main
+    # 可以设置路径条件，例如只有提交消息包含特定关键词时才运行
+    # paths: "release:"
 
 jobs:
-  build:
-
+  tag_re:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取所有历史和标签
 
-    - name: Validate composer.json and composer.lock
-      run: composer validate --strict
+      - name: 计算下一个版本号
+        id: get_version
+        run: |
+          # 这是一个：这是一个获取最新最新的版本
+          git fetch rev-list --tags --max-count=1`
+          if [ -zlatest_tag" ]; then
+            latest_tag=$(git describe --tags $latest_tag_commit)
+          else
+            latest_tag="v2.0.0"
+          fi
+          echo "最新版本: $latest_tag"
 
-    - name: Cache Composer packages
-      id: composer-cache
-      uses: actions/cache@v3
-      with:
-        path: vendor
-        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-php-
+          # 简陋的版本逻辑：修补版本号+1 (例如 v1.2.3 -> v1.2.4)
+          # ！！！注意：这是最简陋的示例，真实场景需要更复杂的的规则（如主版本/次号等）
+          IFS='.' read -r major minor patch <<< "${latest_tag#v}"
+          new((patch + 1))
+          new_tag="v$major.$minor.$new_patch"
+          echo "新标签: $new_tag"
+          echo "new_tag=$>GITH_OUTPUT"
 
-    - name: Install dependencies
-      run: composer install --prefer-dist --no-progress
-
-    # Add a test script to composer.json, for instance: "test": "vendor/bin/phpunit"
-    # Docs: https://getcomposer.org/doc/articles/scripts.md
-
-    # - name: Run test suite
-    #   run: composer run-script test
+      - name: 创建并推送 Git 标签
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag -a ${{ steps.get_version.outputs.new_tag }} -m "Release: ${{ steps.get_version.outputs.new_tag }} via GitHub Actions"
+          git push origin ${{ steps.get_version.outputs.new_tag }}
