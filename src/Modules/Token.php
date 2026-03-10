@@ -79,9 +79,12 @@ class Token extends BaseModule
      */
     public function send(string $to, float $amount, string $tokenId, ?string $from = null): array
     {
-        $from = $from ? TronUtils::toHex($from) : $this->tronWeb->getAddress()['hex'];
+        // 使用新的验证和转换服务
+        $fromHex = $from ? \Dsdcr\TronWeb\Support\AddressValidator::validateAndNormalize($from, 'sender address', 'hex')
+                         : $this->tronWeb->getAddress()['hex'];
+        $sunAmount = \Dsdcr\TronWeb\Support\TronUtils::trxToSun($amount);
 
-        $transaction = $this->tronWeb->transactionBuilder->sendToken($to, $tokenId, TronUtils::toSun($amount), $from);
+        $transaction = $this->tronWeb->transactionBuilder->sendToken($to, $tokenId, $sunAmount, $fromHex);
         $signedTransaction = $this->tronWeb->trx->signTransaction($transaction);
 
         return $this->tronWeb->trx->sendRawTransaction($signedTransaction);
@@ -254,10 +257,14 @@ class Token extends BaseModule
     {
         $buyer = $buyer ?: $this->tronWeb->getAddress()['hex'];
 
+        // 使用新的验证和转换服务
+        $issuerHex = \Dsdcr\TronWeb\Support\AddressValidator::validateAndNormalize($issuerAddress, 'issuer address', 'hex');
+        $sunAmount = \Dsdcr\TronWeb\Support\TronUtils::trxToSun($amount);
+
         $transaction = $this->tronWeb->transactionBuilder->purchaseToken(
-            TronUtils::toHex($issuerAddress),
+            $issuerHex,
             $tokenID,
-            TronUtils::toSun($amount),
+            $sunAmount,
             $buyer
         );
         $signedTransaction = $this->tronWeb->trx->signTransaction($transaction);
@@ -341,7 +348,7 @@ class Token extends BaseModule
      */
     public function getIssuedByAddress(?string $address = null): array
     {
-        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
+        $addressHex = $address ? \Dsdcr\TronWeb\Support\TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
         return $this->tronWeb->request('wallet/getassetissuebyaccount', [
             'address' => $addressHex
@@ -574,7 +581,7 @@ class Token extends BaseModule
     {
         $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        if (!TronUtils::isAddress(TronUtils::fromHex($addressHex))) {
+        if (!TronUtils::isAddress($addressHex)) {
             throw new TronException('Invalid address provided');
         }
 

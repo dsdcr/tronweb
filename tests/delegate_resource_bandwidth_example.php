@@ -3,8 +3,6 @@
  * 资源委托示例脚本 (带宽自动计算功能)
  */
 
-require_once __DIR__ . '/vendor/autoload.php';
-
 use Dsdcr\TronWeb\TronWeb;
 use Dsdcr\TronWeb\Provider\HttpProvider;
 
@@ -15,11 +13,11 @@ echo "========================================\n\n";
 // 配置参数
 $config = [
     'fullNodeUrl' => 'https://api.trongrid.io',
-    'apiKey' => 'cf66cd8a-1378-4890-af19-f6c484fda20e',
-    'privateKey' => 'your_private_key_here',
-    'ownerAddress' => 'TXPi4mVoZHrTKRRA2ZNEq9bbMKZgqPQGtF',
-    'receiverAddress' => 'TFxaKCCGnbfLr93FjUWBKTJ2mDqJ6KT12h',
-    'targetBandwidth' => 600, // 目标能量数
+    'apiKey' => 'your-api-key-here', // ⚠️ 替换为您的 TRON-PRO-API-KEY
+    'privateKey' => 'your_private_key_here', // ⚠️ 替换为您的私钥
+    'ownerAddress' => 'YOUR_ADDRESS_HERE', // ⚠️ 替换为您的地址
+    'receiverAddress' => 'RECEIVER_ADDRESS_HERE', // ⚠️ 替换为接收方地址
+    'targetBandwidth' => 600, // 目标带宽数
     'resource' => 'BANDWIDTH',
     'lock' => false,
     'lockPeriod' => null

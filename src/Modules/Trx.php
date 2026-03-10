@@ -73,7 +73,7 @@ class Trx extends BaseModule
      */
     public function getBalance(?string $address = null, bool $fromTron = false): float
     {
-        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
+        $addressHex = $address ? \Dsdcr\TronWeb\Support\TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
         $account = $this->tronWeb->request('walletsolidity/getaccount', [
             'address' => $addressHex
@@ -84,7 +84,7 @@ class Trx extends BaseModule
         }
 
         $balance = (int)$account['balance'];
-        return $fromTron ? TronUtils::fromSun($balance) : $balance;
+        return $fromTron ? \Dsdcr\TronWeb\Support\TronUtils::sunToTrx($balance) : $balance;
     }
 
     /**
@@ -127,7 +127,7 @@ class Trx extends BaseModule
             $options = ['privateKey' => $options['privateKey']];
         }
 
-        if (!TronUtils::isAddress($to)) {
+        if (!\Dsdcr\TronWeb\Support\TronUtils::isAddress($to)) {
             throw new TronException('Invalid recipient provided');
         }
 
@@ -517,9 +517,9 @@ class Trx extends BaseModule
      */
     public function getUnconfirmedAccount(?string $address = null): array
     {
-        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
+        $addressHex = $address ? \Dsdcr\TronWeb\Support\TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        if (!TronUtils::isAddress(TronUtils::fromHex($addressHex))) {
+        if (!\Dsdcr\TronWeb\Support\TronUtils::isAddress($addressHex)) {
             throw new TronException('Invalid address provided');
         }
 
@@ -552,7 +552,7 @@ class Trx extends BaseModule
     {
         $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        if (!TronUtils::isAddress(TronUtils::fromHex($addressHex))) {
+        if (!TronUtils::isAddress($addressHex)) {
             throw new TronException('Invalid address provided');
         }
 
@@ -962,7 +962,7 @@ class Trx extends BaseModule
     {
         $addr = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        if (!TronUtils::isAddress(TronUtils::fromHex($addr))) {
+        if (!TronUtils::isAddress($addr)) {
             throw new TronException('Invalid address provided');
         }
 
@@ -995,7 +995,7 @@ class Trx extends BaseModule
     {
         $addr = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        if (!TronUtils::isAddress(TronUtils::fromHex($addr))) {
+        if (!TronUtils::isAddress($addr)) {
             throw new TronException('Invalid address provided');
         }
 
@@ -1181,7 +1181,7 @@ class Trx extends BaseModule
     {
         $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        if (!TronUtils::isAddress(TronUtils::fromHex($addressHex))) {
+        if (!TronUtils::isAddress($addressHex)) {
             throw new TronException('Invalid address provided');
         }
 
@@ -1189,20 +1189,6 @@ class Trx extends BaseModule
             'address' => $addressHex
         ], 'post');
         return $response;
-        return [
-            'energy_limit' => $response['EnergyLimit'] ?? 0,
-            'energy_used' => $response['EnergyUsed'] ?? 0,
-            'free_net_limit' => $response['freeNetLimit'] ?? 0,
-            'free_net_used' => $response['freeNetUsed'] ?? 0,
-            'net_limit' => $response['NetLimit'] ?? 0,
-            'net_used' => $response['NetUsed'] ?? 0,
-            'asset_net_used' => $response['AssetNetUsed'] ?? [],
-            'asset_net_limit' => $response['AssetNetLimit'] ?? [],
-            'total_net_limit' => $response['TotalNetLimit'] ?? 0,
-            'total_net_weight' => $response['TotalNetWeight'] ?? 0,
-            'total_energy_limit' => $response['TotalEnergyLimit'] ?? 0,
-            'total_energy_weight' => $response['TotalEnergyWeight'] ?? 0
-        ];
     }
 
     /**

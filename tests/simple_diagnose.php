@@ -1,5 +1,4 @@
 <?php
-require_once __DIR__ . '/vendor/autoload.php';
 
 use Dsdcr\TronWeb\TronWeb;
 use Dsdcr\TronWeb\Provider\HttpProvider;
@@ -8,12 +7,11 @@ echo "SunSwap Router 简单诊断\n";
 echo "=======================\n";
 
 $routerAddress = 'TKzxdSv2FZKQrEqkKVgp5DcwEXBEKMg2Ax';
-$apiKey = 'cf66cd8a-1378-4890-af19-f6c484fda20e';
 
 try {
     $nodeConfig = [
         'host' => 'https://api.trongrid.io',
-        'headers' => ['TRON-PRO-API-KEY' => $apiKey]
+        'headers' => ['TRON-PRO-API-KEY' => 'your-api-key-here'] // 替换为您的 API Key
     ];
 
     $tronWeb = new TronWeb(
@@ -59,11 +57,12 @@ try {
 
     echo "\n3. 检查合约信息:\n";
     try {
-        $contractInfo = $tronWeb->trx->getContract($routerAddress);
-        echo "   📅 合约创建时间: " . date('Y-m-d H:i:s', $contractInfo['create_time'] / 1000) . "\n";
-        echo "   👨‍💼 合约创建者: " . $contractInfo['origin_address'] . "\n";
+        // 使用 contract()->at() 获取合约实例
+        $contract = $tronWeb->contract()->at($routerAddress);
+        echo "   ✅ 合约地址：" . $contract->getAddress() . "\n";
+        echo "   ℹ️ 注意：getContract() 方法不存在，请使用 contract()->at()\n";
     } catch (Exception $e) {
-        echo "   ℹ️ 无法获取合约信息: " . $e->getMessage() . "\n";
+        echo "   ℹ️ 无法获取合约信息：" . $e->getMessage() . "\n";
     }
 
 } catch (Exception $e) {

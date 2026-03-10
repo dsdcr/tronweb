@@ -3,8 +3,6 @@
  * 资源委托示例脚本 (能量自动计算功能)
  */
 
-require_once __DIR__ . '/vendor/autoload.php';
-
 use Dsdcr\TronWeb\TronWeb;
 use Dsdcr\TronWeb\Provider\HttpProvider;
 
@@ -15,7 +13,7 @@ echo "========================================\n\n";
 // 配置参数
 $config = [
     'fullNodeUrl' => 'https://api.trongrid.io',
-    'apiKey'      => 'cf66cd8a-1378-4890-af19-f6c484fda20e',
+    'apiKey'      => 'your-api-key-here',
     'privateKey'  => 'your_private_key_here',
     'ownerAddress' => 'TXPi4mVoZHrTKRRA2ZNEq9bbMKZgqPQGtF',
     'receiverAddress' => 'TFxaKCCGnbfLr93FjUWBKTJ2mDqJ6KT12h',

@@ -84,18 +84,56 @@ class TronManager
     {
         $this->providers = $providers;
 
+        // 从 fullNode 获取 headers 配置，用于其他节点
+        $defaultHeaders = [];
+        if (isset($providers['fullNode']) &&
+            $providers['fullNode'] instanceof HttpProviderInterface) {
+            $defaultHeaders = $providers['fullNode']->getHeaders();
+        }
+
         // 遍历所有 Provider 配置
         foreach ($providers as $key => $value) {
-            // 如果值为 null，使用默认节点
+            // 如果值为 null，使用默认节点并继承 fullNode 的 headers
             if ($value == null) {
-                $this->providers[$key] = new HttpProvider(
-                    $this->defaultNodes[$key]
-                );
-            }
+                $httpOptions = [
+                    'host' => $this->defaultNodes[$key]
+                ];
 
-            // 如果值为字符串，创建新的 HttpProvider
-            if(is_string($providers[$key])) {
-                $this->providers[$key] = new HttpProvider($value);
+                // 如果不是 signServer，继承 fullNode 的 headers
+                if ($key !== 'signServer' && !empty($defaultHeaders)) {
+                    $httpOptions['headers'] = $defaultHeaders;
+                }
+
+                $this->providers[$key] = HttpProvider::fromConfig($httpOptions);
+            }
+            // 如果值为字符串，创建新的 HttpProvider，同时检查是否需要继承 headers
+            elseif (is_string($providers[$key])) {
+                // 解析现有的headers信息（如果有的话）
+                $parsedHeaders = [];
+                if (isset($value['headers'])) {
+                    $parsedHeaders = $value['headers'];
+                }
+
+                // 如果缺少headers且不是signServer，从fullNode继承
+                if (empty($parsedHeaders) && $key !== 'signServer' && !empty($defaultHeaders)) {
+                    $parsedHeaders = $defaultHeaders;
+                }
+
+                // 创建HttpProvider，确保包含headers
+                $providerConfig = ['host' => $value];
+                if (!empty($parsedHeaders)) {
+                    $providerConfig['headers'] = $parsedHeaders;
+                }
+
+                $this->providers[$key] = HttpProvider::fromConfig($providerConfig);
+            }
+            // 如果传入的是 HttpProvider 实例但缺少headers，补充headers
+            elseif ($value instanceof HttpProviderInterface && !empty($defaultHeaders) && $key !== 'signServer') {
+                $currentHeaders = $value->getHeaders();
+                // 如果当前节点没有headers或headers为空，从fullNode继承
+                if (empty($currentHeaders)) {
+                    $value->setHeaders($defaultHeaders);
+                }
             }
 
             // 跳过 signServer 的状态页面设置

@@ -56,7 +56,7 @@ class Network extends BaseModule
      */
     public function applyForSuperRepresentative(string $url, ?string $address = null): array
     {
-        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
+        $addressHex = $address ? \Dsdcr\TronWeb\Support\TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
         return $this->tronWeb->request('wallet/applyforsuperrepresentative', [
             'owner_address' => $addressHex,

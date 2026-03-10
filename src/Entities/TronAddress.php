@@ -28,7 +28,6 @@ class TronAddress
     {
         $this->response = $data;
 
-        // Проверяем ключи, перед выводом результатов
         if(!$this->array_keys_exist($this->response, ['address_hex', 'private_key', 'public_key'])) {
             throw new TronException('Incorrectly generated address');
         }

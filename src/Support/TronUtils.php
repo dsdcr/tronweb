@@ -49,13 +49,66 @@ class TronUtils
     }
 
     /**
+     * 验证Tron地址格式
+     *
+     * @param string $address 地址字符串
+     * @return bool 是否有效
+     */
+    public static function isAddress(string $address): bool
+    {
+        // 处理十六进制地址：如果符合十六进制格式、长度为42且以41开头，转换为Base58格式
+        if (self::isHex($address) && strlen($address) === 42 && str_starts_with($address, '41')) {
+            try {
+                $address = self::fromHex($address);
+                // 转换成功后，直接验证转换后的Base58地址
+                return self::isAddress($address);
+            } catch (\Exception $e) {
+                return false;
+            }
+        }
+
+        // 验证Base58地址长度
+        if (strlen($address) !== self::ADDRESS_SIZE) {
+            return false;
+        }
+
+        try {
+            // 解码完整的Base58地址（包含版本字节和校验和）
+            $fullDecoded = Base58Check::decode($address, 0, 0, false);
+            $fullData = hex2bin($fullDecoded);
+
+            // 验证完整数据长度（25字节 = 1版本字节 + 20地址字节 + 4校验和字节）
+            if (strlen($fullData) !== 25) return false;
+
+            // 验证版本字节（前缀）
+            if (ord($fullData[0]) !== self::ADDRESS_PREFIX_BYTE) return false;
+
+            // 分离地址数据和校验和
+            $addressData = substr($fullData, 0, 21); // 1版本字节 + 20地址字节
+            $checkSum = substr($fullData, 21, 4);    // 4字节校验和
+
+            // 计算正确的校验和
+            $hash0 = Hash::SHA256($addressData);
+            $hash1 = Hash::SHA256($hash0);
+            $computedChecksum = substr($hash1, 0, 4);
+
+            return $checkSum === $computedChecksum;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
      * 将TRX转换为SUN（最小单位）
      *
      * @param float $trx TRX数量
      * @return int SUN数量
      */
-    public static function toSun(float $trx): int
+    public static function trxToSun(float $trx): int
     {
+        if (!is_numeric($trx) || $trx < 0) {
+            throw new TronException("Invalid TRX amount: {$trx}");
+        }
         return (int)($trx * self::TRX_TO_SUN);
     }
 
@@ -65,8 +118,11 @@ class TronUtils
      * @param int $sun SUN数量
      * @return float TRX数量
      */
-    public static function fromSun(int $sun): float
+    public static function sunToTrx(int $sun): float
     {
+        if (!is_numeric($sun) || $sun < 0) {
+            throw new TronException("Invalid SUN amount: {$sun}");
+        }
         return $sun / self::TRX_TO_SUN;
     }
 
@@ -101,38 +157,6 @@ class TronUtils
             return '';
         }
         return Base58Check::encode($hexAddress, 0, false);
-    }
-
-    /**
-     * 验证Tron地址格式
-     *
-     * @param string $address 地址字符串
-     * @return bool 是否有效
-     */
-    public static function isAddress(string $address): bool
-    {
-        if (strlen($address) !== self::ADDRESS_SIZE) {
-            return false;
-        }
-
-        try {
-            $decoded = Base58Check::decode($address, 0, 0, false);
-            $utf8 = hex2bin($decoded);
-
-            if (strlen($utf8) !== 25) return false;
-            if (strpos($utf8, chr(self::ADDRESS_PREFIX_BYTE)) !== 0) return false;
-
-            $checkSum = substr($utf8, 21);
-            $addressData = substr($utf8, 0, 21);
-
-            $hash0 = Hash::SHA256($addressData);
-            $hash1 = Hash::SHA256($hash0);
-            $checkSum1 = substr($hash1, 0, 4);
-
-            return $checkSum === $checkSum1;
-        } catch (\Exception $e) {
-            return false;
-        }
     }
 
     /**
@@ -304,33 +328,25 @@ class TronUtils
     /**
      * 从私钥获取地址
      *
-     * 将私钥转换为对应地址。
-     * 这是最常用的私钥转地址方法。
-     *
      * @param string $privateKey 私钥（可选）
      *                          如不提供则使用当前账户私钥
      *                          64字符十六进制字符串
      * @param string $format 返回地址格式（可选，默认'base58'）
      *                      - 'base58': 返回Base58格式地址
      *                      - 'hex': 返回十六进制格式地址
-     *
      * @return string 指定格式的地址字符串
-     *
      * @throws TronException 当私钥未提供或格式无效时抛出
      *
      * @example
      * // 获取Base58地址
      * $address = $tronWeb->account->fromPrivateKey('private_key...');
-     * echo "Base58地址: " . $address;
      *
      * // 获取Hex地址
      * $address = $tronWeb->account->fromPrivateKey('private_key...', 'hex');
-     * echo "Hex地址: " . $address;
      *
      * // 使用当前账户私钥
      * $address = $tronWeb->account->fromPrivateKey();
      *
-     * @see createWithPrivateKey() 创建完整账户对象
      */
     public static function fromPrivateKey(string $privateKey, string $format = 'base58'): string
     {
@@ -369,10 +385,6 @@ class TronUtils
      *
      * @param mixed $sciNotation 科学记数法字符串或数字
      * @return string 转换后的整数字符串
-     *
-     * @example
-     * TronUtils::toDecimal('2.0E+25') // returns '20000000000000000000000000'
-     * TronUtils::toDecimal('5e18')    // returns '5000000000000000000'
      */
     public static function toDecimal($sciNotation): string
     {
@@ -449,5 +461,4 @@ class TronUtils
             }
         }
     }
-
 }

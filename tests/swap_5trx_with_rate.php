@@ -3,15 +3,12 @@
  * SunSwap V2 USDT -> TRX
  */
 
-require_once __DIR__ . '/vendor/autoload.php';
-
 use Dsdcr\TronWeb\TronWeb;
 use Dsdcr\TronWeb\Provider\HttpProvider;
 
 // ==================== 配置参数 ====================
 $privateKey = 'your_private_key_here';
 $userAddress = 'TFxaKCCGnbfLr93FjUWBKTJ2mDqJ6KT12h';
-$apiKey = 'cf66cd8a-1378-4890-af19-f6c484fda20e';
 
 $routerAddress = 'TKzxdSv2FZKQrEqkKVgp5DcwEXBEKMg2Ax'; // SunSwap V2 Router
 $usdtAddress = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';   // USDT (TRC20)
@@ -28,7 +25,7 @@ try {
     // 1. 初始化 TronWeb
     $nodeConfig = [
         'host' => 'https://api.trongrid.io',
-        'headers' => ['TRON-PRO-API-KEY' => $apiKey]
+        'headers' => ['TRON-PRO-API-KEY' => 'your-api-key-here']
     ];
     $tronWeb = new TronWeb(new HttpProvider($nodeConfig), new HttpProvider($nodeConfig), new HttpProvider($nodeConfig));
     $tronWeb->setPrivateKey($privateKey);

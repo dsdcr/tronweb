@@ -44,8 +44,8 @@ try {
     // 单位转换演示
     echo "   - 单位转换演示:\n";
     $trxAmount = 1.5;
-    $sunAmount = $tronWeb->utils->toSun($trxAmount);
-    $convertedBack = $tronWeb->utils->fromSun($sunAmount);
+    $sunAmount = $tronWeb->utils->trxToSun($trxAmount);
+    $convertedBack = $tronWeb->utils->sunToTrx($sunAmount);
 
     echo "     TRX: $trxAmount\n";
     echo "     SUN: $sunAmount\n";

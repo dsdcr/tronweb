@@ -107,13 +107,9 @@ class TransactionBuilder
         if (is_null($from)) {
             throw new TronException('From address is required');
         }
-        // 如果是Base58地址，先转换为hex
-        if ($this->tronWeb->utils->isAddress($from) && !$this->tronWeb->utils->isHex($from)) {
-            $from = $this->tronWeb->toHex($from);
-        }
-
-        $toHex = $this->tronWeb->utils->isHex($to) ? $to : $this->tronWeb->toHex($to);
-        $fromHex = $this->tronWeb->utils->isHex($from) ? $from : $this->tronWeb->toHex($from);
+        // 使用新的验证和转换服务
+        $toHex = \Dsdcr\TronWeb\Support\AddressValidator::validateAndNormalize($to, 'recipient address', 'hex');
+        $fromHex = \Dsdcr\TronWeb\Support\AddressValidator::validateAndNormalize($from, 'sender address', 'hex');
 
         if ($toHex === $fromHex) {
             throw new TronException('Receiver address must not be the same as owner address');
@@ -126,7 +122,7 @@ class TransactionBuilder
         $data = [
             'to_address' => $toHex,
             'owner_address' => $fromHex,
-            'amount' => $this->tronWeb->utils->toSun($amount),
+            'amount' => $this->tronWeb->utils->trxToSun($amount),
         ];
         if (isset($options['message'])) {
             $data['extra_data'] = $this->tronWeb->utils->stringToHex($options['message']);
@@ -198,12 +194,11 @@ class TransactionBuilder
             throw new TronException('From address is required');
         }
 
-        $toHex = $this->tronWeb->toHex($to);
-        $fromHex = $this->tronWeb->toHex($from);
+        // 使用新的验证和转换服务
+        $toHex = \Dsdcr\TronWeb\Support\AddressValidator::validateAndNormalize($to, 'recipient address', 'hex');
+        $fromHex = \Dsdcr\TronWeb\Support\AddressValidator::validateAndNormalize($from, 'sender address', 'hex');
 
-        if ($toHex === $fromHex) {
-            throw new TronException('Cannot transfer tokens to the same account');
-        }
+        \Dsdcr\TronWeb\Support\AddressValidator::validateDifferentAddresses($from, $to, 'token transfer');
 
         if ($amount <= 0) {
             throw new TronException('Invalid amount provided');
@@ -282,11 +277,16 @@ class TransactionBuilder
             throw new TronException('Invalid amount provided');
         }
 
+        // 使用新的验证和转换服务
+        $issuerHex = \Dsdcr\TronWeb\Support\AddressValidator::validateAndNormalize($issuerAddress, 'issuer address', 'hex');
+        $buyerHex = \Dsdcr\TronWeb\Support\AddressValidator::validateAndNormalize($buyer, 'buyer address', 'hex');
+        $sunAmount = \Dsdcr\TronWeb\Support\TronUtils::trxToSun($amount);
+
         $purchase = $this->tronWeb->request('wallet/participateassetissue', [
-            'to_address' => $this->tronWeb->toHex($issuerAddress),
-            'owner_address' => $this->tronWeb->toHex($buyer),
+            'to_address' => $issuerHex,
+            'owner_address' => $buyerHex,
             'asset_name' => $this->tronWeb->utils->toUtf8($tokenID),
-            'amount' => $this->tronWeb->utils->toSun($amount)
+            'amount' => $sunAmount
         ]);
 
         if (array_key_exists('Error', $purchase)) {
@@ -490,11 +490,13 @@ class TransactionBuilder
             throw new TronException('Invalid resource provided: Expected "BANDWIDTH" or "ENERGY"');
         }
 
-        $ownerAddressHex = $this->tronWeb->toHex($ownerAddress);
+        // 使用新的验证和转换服务
+        $ownerAddressHex = \Dsdcr\TronWeb\Support\AddressValidator::validateAndNormalize($ownerAddress, 'owner address', 'hex');
+        $sunAmount = \Dsdcr\TronWeb\Support\TronUtils::trxToSun($amount);
 
         $data = [
             'owner_address' => $ownerAddressHex,
-            'frozen_balance' => $this->tronWeb->utils->toSun($amount),
+            'frozen_balance' => $sunAmount,
             'frozen_duration' => $duration,
         ];
 
@@ -598,9 +600,12 @@ class TransactionBuilder
             throw new TronException('Invalid resource provided: Expected "BANDWIDTH" or "ENERGY"');
         }
 
+        $addressHex = \Dsdcr\TronWeb\Support\AddressValidator::validateAndNormalize($address, 'address', 'hex');
+        $sunAmount = \Dsdcr\TronWeb\Support\TronUtils::trxToSun($amount);
+
         $data = [
-            'owner_address' => $this->tronWeb->toHex($address),
-            'frozen_balance' => $this->tronWeb->utils->toSun($amount),
+            'owner_address' => $addressHex,
+            'frozen_balance' => $sunAmount,
         ];
 
         if ($resource !== 'BANDWIDTH') {
@@ -648,7 +653,7 @@ class TransactionBuilder
 
         $data = [
             'owner_address' => $this->tronWeb->toHex($address),
-            'unfreeze_balance' => $this->tronWeb->utils->toSun($amount),
+            'unfreeze_balance' => $this->tronWeb->utils->trxToSun($amount),
         ];
 
         if ($resource !== 'BANDWIDTH') {
@@ -738,7 +743,7 @@ class TransactionBuilder
         $data = [
             'owner_address' => $ownerAddressHex,
             'receiver_address' => $receiverAddressHex,
-            'balance' => $this->tronWeb->utils->toSun($amount),
+            'balance' => $this->tronWeb->utils->trxToSun($amount),
         ];
 
         if ($resource !== 'BANDWIDTH') {
@@ -802,7 +807,7 @@ class TransactionBuilder
         $data = [
             'owner_address' => $ownerAddressHex,
             'receiver_address' => $receiverAddressHex,
-            'balance' => $this->tronWeb->utils->toSun($amount),
+            'balance' => $this->tronWeb->utils->trxToSun($amount),
         ];
 
         if ($resource !== 'BANDWIDTH') {

@@ -151,7 +151,6 @@ class TronWeb
             'signServer'    => $signServer,
             'explorer'       => $explorer
         ]);
-
         // 初始化所有模块
         $this->utils = new \Dsdcr\TronWeb\Support\TronUtils();
         $this->trx = new \Dsdcr\TronWeb\Modules\Trx($this);
@@ -211,8 +210,8 @@ class TronWeb
      */
     public function setAddress(string $address): void
     {
-        $_toHex = $this->toHex($address);
-        $_fromHex = $this->fromHex($address);
+        $_toHex = \Dsdcr\TronWeb\Support\TronUtils::toHex($address);
+        $_fromHex = \Dsdcr\TronWeb\Support\TronUtils::fromHex($_toHex);
 
         $this->address = [
             'hex'       => $_toHex,
@@ -251,10 +250,7 @@ class TronWeb
     }
 
     /**
-     * 将地址转换为十六进制
-     *
-     * @param string $address
-     * @return string
+     * @deprecated 自v2.1.0起废弃，请直接使用 \Dsdcr\TronWeb\Support\TronUtils::toHex()
      */
     public function toHex(string $address): string
     {
@@ -262,10 +258,7 @@ class TronWeb
     }
 
     /**
-     * 将十六进制转换为地址
-     *
-     * @param string $addressHex
-     * @return string
+     * @deprecated 自v2.1.0起废弃，请直接使用 \Dsdcr\TronWeb\Support\TronUtils::fromHex()
      */
     public function fromHex(string $addressHex): string
     {
@@ -273,10 +266,7 @@ class TronWeb
     }
 
     /**
-     * 转换科学记数法字符串为整数
-     *
-     * @param mixed $sciNotation
-     * @return string
+     * @deprecated 自v2.1.0起废弃，请直接使用 \Dsdcr\TronWeb\Support\TronUtils::toDecimal()
      */
     public function toDecimal(mixed $sciNotation): string
     {
@@ -284,10 +274,7 @@ class TronWeb
     }
 
     /**
-     * 验证Tron地址格式
-     *
-     * @param string $address
-     * @return string
+     * @deprecated 自v2.1.0起废弃，请直接使用 \Dsdcr\TronWeb\Support\TronUtils::isAddress()
      */
     public function isAddress(string $address): bool
     {
@@ -336,14 +323,11 @@ class TronWeb
     }
 
     /**
-     * 将SUN转换为TRX
-     *
-     * @param int $sun SUN数量
-     * @return float TRX数量
+     * @deprecated 自v2.1.0起废弃，请直接使用 \Dsdcr\TronWeb\Support\TronUtils::sunToTrx()
      */
     public function fromSun(int $sun): float
     {
-        return \Dsdcr\TronWeb\Support\TronUtils::fromSun($sun);
+        return \Dsdcr\TronWeb\Support\TronUtils::sunToTrx($sun);
     }
 
     /**

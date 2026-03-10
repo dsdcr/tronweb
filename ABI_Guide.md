@@ -14,25 +14,27 @@
 
 ERC20 是 TRON 网络上最常用的代币标准。
 
-### 获取合约实例
-
 
 ## 工具方法
 
 ### combined() - 组合多种 ABI
 
 ```php
-use Dsdcr\TronWeb\Config\DefaultAbi;
+use Dsdcr\TronWeb\Config\Abi;
 
 // 组合多种 ABI
-$abi = DefaultAbi::combined(['erc20', 'router']);
-// 支持的类型：'erc20', 'router', 'v3router', 'fibonacci'
+$abi = Abi::combined(['erc20', 'v2router']);
+// 支持的类型：'erc20', 'v2router', 'v3router', 'fibonacci'
 
 // 使用组合后的 ABI
-$contract = $tronWeb->contract($abi)->at($contractAddress);
+$tokenContract = $tronWeb->contract($abi)->at($contractAddress);
 // 使用组合后的所有 ABI
-$contract = $tronWeb->contract()->at($contractAddress);
+$tokenContract = $tronWeb->contract()->at($contractAddress);
+
 ```
+
+### 获取合约实例
+
 
 ### 1. name() - 查询代币名称
 
@@ -308,10 +310,7 @@ $result = $fibonacciContract->fibonacciNotify($number)->send();
 // 示例：
 $result = $fibonacciContract->fibonacciNotify(10)->send();
 ```
-
 ### 事件监听
-
-```php
 $fibonacciContract = $tronWeb->contract()->at($contractAddress);
 
 // 监听 Notify 事件
@@ -319,9 +318,341 @@ $fibonacciContract->events()->Notify()->watch(function($event) {
     echo "Input: " . $event['result']['input'] . "\n";
     echo "Result: " . $event['result']['result'] . "\n";
 });
+
+---
+
+## 新增方法（V2 Router 补充）
+
+### 3. getAmountsIn(amountOut, path) - 查询交换输入金额
+
+```php
+$routerContract = $tronWeb->contract()->at($routerAddress);
+$amounts = $routerContract->getAmountsIn($amountOut, $path);
+// 参数：
+//   $amountOut - 希望得到的输出数量
+//   $path - 交换路径数组
+// 返回：每一步需要的输入数量数组
+// 示例：
+$path = [$tokenA, $tokenB]; // USDT -> TRX
+$amounts = $routerContract->getAmountsIn(1000000, $path);
+// 想要换到 1 TRX，需要多少 USDT
+```
+
+### 4. getAmountIn(amountOut, reserveIn, reserveOut) - 查询单池输入金额
+
+```php
+$routerContract = $tronWeb->contract()->at($routerAddress);
+$amountIn = $routerContract->getAmountIn($amountOut, $reserveIn, $reserveOut);
+// 参数：
+//   $amountOut - 输出数量
+//   $reserveIn - 输入代币的储备量
+//   $reserveOut - 输出代币的储备量
+// 返回：需要的输入数量（纯函数，不考虑滑点）
+```
+
+### 5. getAmountOut(amountIn, reserveIn, reserveOut) - 查询单池输出金额
+
+```php
+$routerContract = $tronWeb->contract()->at($routerAddress);
+$amountOut = $routerContract->getAmountOut($amountIn, $reserveIn, $reserveOut);
+// 参数：
+//   $amountIn - 输入数量
+//   $reserveIn - 输入代币的储备量
+//   $reserveOut - 输出代币的储备量
+// 返回：能得到的输出数量（纯函数）
+```
+
+### 6. quote(amountA, reserveA, reserveB) - 计算兑换比率
+
+```php
+$routerContract = $tronWeb->contract()->at($routerAddress);
+$amountB = $routerContract->quote($amountA, $reserveA, $reserveB);
+// 参数：
+//   $amountA - A 代币数量
+//   $reserveA - A 代币储备量
+//   $reserveB - B 代币储备量
+// 返回：对应的 B 代币数量
+```
+
+### 7. swapExactETHForTokens(amountOutMin, path, to, deadline) - 精确输入 ETH 交换代币
+
+```php
+$routerContract = $tronWeb->contract()->at($routerAddress);
+$result = $routerContract->swapExactETHForTokens(
+    $amountOutMin,
+    $path,
+    $toAddress,
+    $deadline
+)->send();
+// 参数：
+//   $amountOutMin - 最少输出数量（滑点保护）
+//   $path - 交换路径，第一个必须是 WTRX
+//   $toAddress - 接收代币的地址
+//   $deadline - 交易截止时间戳
+// 注意：需要发送对应数量的 TRX
+// 示例：
+$path = [$wtrxAddress, $tokenAddress]; // TRX -> Token
+$result = $routerContract->swapExactETHForTokens(
+    99000000,   // 至少换到 99 Token
+    $path,
+    $myAddress,
+    time() + 300
+)->send({callValue: 100000000}); // 发送 100 TRX
+```
+
+### 8. swapETHForExactTokens(amountOut, path, to, deadline) - 用 TRX 兑换精确数量的代币
+
+```php
+$routerContract = $tronWeb->contract()->at($routerAddress);
+$result = $routerContract->swapETHForExactTokens(
+    $amountOut,
+    $path,
+    $toAddress,
+    $deadline
+)->send();
+// 参数：
+//   $amountOut - 精确的输出数量
+//   $path - 交换路径
+//   $toAddress - 接收代币的地址
+//   $deadline - 截止时间
+// 注意：会自动计算需要的 TRX 数量
+```
+
+### 9. swapTokensForExactETH(amountOut, amountInMax, path, to, deadline) - 用代币兑换精确数量的 TRX
+
+```php
+$routerContract = $tronWeb->contract()->at($routerAddress);
+$result = $routerContract->swapTokensForExactETH(
+    $amountOut,
+    $amountInMax,
+    $path,
+    $toAddress,
+    $deadline
+)->send();
+// 参数：
+//   $amountOut - 精确的 TRX 输出数量
+//   $amountInMax - 最大允许的代币输入数量
+//   $path - 交换路径
+//   $toAddress - 接收 TRX 的地址
+//   $deadline - 截止时间
+```
+
+### 10. swapTokensForExactTokens(amountOut, amountInMax, path, to, deadline) - 用代币兑换精确数量的其他代币
+
+```php
+$routerContract = $tronWeb->contract()->at($routerAddress);
+$result = $routerContract->swapTokensForExactTokens(
+    $amountOut,
+    $amountInMax,
+    $path,
+    $toAddress,
+    $deadline
+)->send();
+// 参数：
+//   $amountOut - 精确的输出数量
+//   $amountInMax - 最大允许的输入数量
+//   $path - 交换路径
+//   $toAddress - 接收代币的地址
+//   $deadline - 截止时间
+```
+
+### 11. factory() - 查询工厂合约地址
+
+```php
+$routerContract = $tronWeb->contract()->at($routerAddress);
+$factoryAddress = $routerContract->factory();
+// 返回：SunSwap V2 工厂合约地址
+```
+
+### 12. WETH() - 查询 WTRX 合约地址
+
+```php
+$routerContract = $tronWeb->contract()->at($routerAddress);
+$wtrxAddress = $routerContract->WETH();
+// 返回：WTRX 代币合约地址
+```
+
+### 13. 流动性管理方法
+
+#### addLiquidity() - 添加代币对流动性
+
+```php
+$result = $routerContract->addLiquidity(
+    $tokenA,
+    $tokenB,
+    $amountADesired,
+    $amountBDesired,
+    $amountAMin,
+    $amountBMin,
+    $toAddress,
+    $deadline
+)->send();
+```
+
+#### addLiquidityETH() - 添加 TRX-代币流动性
+
+```php
+$result = $routerContract->addLiquidityETH(
+    $token,
+    $amountTokenDesired,
+    $amountTokenMin,
+    $amountETHMin,
+    $toAddress,
+    $deadline
+)->send({callValue: $ethAmount});
+```
+
+#### removeLiquidity() - 移除代币对流动性
+
+```php
+$result = $routerContract->removeLiquidity(
+    $tokenA,
+    $tokenB,
+    $liquidity,
+    $amountAMin,
+    $amountBMin,
+    $toAddress,
+    $deadline
+)->send();
+```
+
+#### removeLiquidityETH() - 移除 TRX-代币流动性
+
+```php
+$result = $routerContract->removeLiquidityETH(
+    $token,
+    $liquidity,
+    $amountTokenMin,
+    $amountETHMin,
+    $toAddress,
+    $deadline
+)->send();
 ```
 
 ---
+
+## 新增方法（ERC20 补充）
+
+### 12. getAddress() - 查询合约地址
+
+```php
+$tokenContract = $tronWeb->contract()->at($tokenAddress);
+$contractAddress = $tokenContract->getAddress();
+// 返回：当前代币合约的地址
+```
+
+### 13. burn(amount) - 销毁代币
+
+```php
+$tokenContract = $tronWeb->contract()->at($tokenAddress);
+$result = $tokenContract->burn($amount)->send();
+// 参数：$amount - 要销毁的数量
+// 注意：只能销毁自己账户的代币
+```
+
+### 14. burnFrom(account, amount) - 从指定账户销毁代币
+
+```php
+$tokenContract = $tronWeb->contract()->at($tokenAddress);
+$result = $tokenContract->burnFrom($account, $amount)->send();
+// 参数：
+//   $account - 代币拥有者账户地址
+//   $amount - 要销毁的数量
+// 注意：需要先有授权
+```
+
+### 15. 事件监听补充
+
+```php
+// 监听 Burn 事件（代币销毁）
+$tokenContract->events()->Burn()->watch(function($event) {
+    echo "From: " . $event['result']['from'] . "\n";
+    echo "Value: " . $event['result']['value'] . "\n";
+});
+```
+
+---
+
+## 新增方法（V3 Router 补充）
+
+### 2. swapExactOutput() - 精确输出交换
+
+```php
+$routerContract = $tronWeb->contract()->at($routerAddress);
+
+// 构造 SwapData 结构
+$swapData = [
+    'amountOut' => $amountOut,
+    'amountInMax' => $amountInMax,
+    'to' => $toAddress,
+    'deadline' => $deadline
+];
+
+$result = $routerContract->swapExactOutput(
+    $path,
+    $poolVersion,
+    $versionLen,
+    $fees,
+    $swapData
+)->send();
+// 参数与 swapExactInput 类似，但输出数量固定
+```
+
+### 3. multicall(data) - 多调用方法
+
+```php
+$routerContract = $tronWeb->contract()->at($routerAddress);
+$result = $routerContract->multicall($calls)->send();
+// 参数：$calls - 多个调用数据的数组
+// 可以批量执行多个操作
+```
+
+### 4. mint() - 创建新仓位
+
+```php
+$result = $routerContract->mint(
+    $tokenA,
+    $tokenB,
+    $fee,
+    $tickLower,
+    $tickUpper,
+    $amount,
+    $amount0Min,
+    $amount1Min,
+    $deadline
+)->send();
+```
+
+### 5. factory() - 查询 V3 工厂地址
+
+```php
+$factoryAddress = $routerContract->factory();
+// 返回：SunSwap V3 工厂合约地址
+```
+
+### 6. WETH9() - 查询 WTRX 合约地址
+
+```php
+$wtrxAddress = $routerContract->WETH9();
+// 返回：WTRX 代币合约地址
+```
+
+---
+
+## 工具方法更新
+
+### getAvailableTypes() - 获取可用类型列表（更新）
+
+```php
+$types = DefaultAbi::getAvailableTypes();
+// 返回：
+// [
+//     'erc20' => 'ERC20 标准代币方法 - 完整的代币接口',
+//     'v2router' => 'SunSwap V2 路由方法 - 包含价格查询和各种交换方法',
+//     'v3router' => 'SunSwap V3 路由方法 - 支持 V3 特有的集中流动性功能',
+//     'fibonacci' => 'Fibonacci 示例合约 - 包含斐波那契数列计算和通知事件'
+// ]
+```
 
 ## 通用注意事项
 

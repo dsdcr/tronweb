@@ -8,7 +8,7 @@ use Dsdcr\TronWeb\Exception\TronException;
 use Dsdcr\TronWeb\Support\TronUtils;
 use Dsdcr\TronWeb\Support\Ethabi;
 use Dsdcr\TronWeb\Support\Keccak;
-use Dsdcr\TronWeb\Config\DefaultAbi;
+use Dsdcr\TronWeb\Config\Abi;
 
 class ContractInstance
 {
@@ -47,7 +47,7 @@ class ContractInstance
         }
         // 如果ABI为空，使用默认的Fibonacci合约ABI
         if (empty($abi) || (is_array($abi) && count($abi) === 0)) {
-            $abi = DefaultAbi::combined();
+            $abi = Abi::combined();
         }
         //print_r($abi);exit;
 
@@ -105,16 +105,29 @@ class ContractInstance
             $fromAddress = $this->pendingCall['fromAddress'];
 
             // 检查传入的 send() 参数
-            $sendOptions = $arguments[0] ?? [];
-            $mergedOptions = array_merge($options, $sendOptions);
+            $sendOptions = [];
+            $privateKey = null;
 
+            if (!empty($arguments)) {
+                // 第一个参数可能是 options 数组或 privateKey 字符串
+                if (is_array($arguments[0])) {
+                    $sendOptions = $arguments[0];
+                    // 第二个参数可能是 privateKey
+                    $privateKey = $arguments[1] ?? null;
+                } elseif (is_string($arguments[0])) {
+                    // 第一个参数是 privateKey
+                    $privateKey = $arguments[0];
+                    // 第二个参数可能是 options
+                    $sendOptions = $arguments[1] ?? [];
+                }
+            }
+            $mergedOptions = array_merge($options, $sendOptions);
             // 清除 pending 状态
             $this->pendingCall = null;
 
-            // 调用方法获取交易
-            $result = $method->call(...$args);
-
-            // 创建 TransactionWrapper 并立即调用 send()
+            // 调用方法获取交易，传递合并后的选项
+            $result = $method->call(...array_merge($args, [$mergedOptions]));
+            // 创建 TransactionWrapper
             $wrapper = new TransactionWrapper(
                 $this->tronWeb,
                 $result,
@@ -122,7 +135,14 @@ class ContractInstance
                 $mergedOptions
             );
 
-            return $wrapper->send();
+            // 如果提供了私钥，设置到wrapper中
+            if ($privateKey !== null) {
+                $wrapper->setPrivateKey($privateKey);
+            }
+
+            // 总是返回 TransactionWrapper 对象
+            // 用户可以调用 ->send() 来实际发送交易，或者调用其他方法
+            return $wrapper;
         }
 
         // 检查是否是 sign() 调用
@@ -257,7 +277,7 @@ class ContractInstance
      */
     public function at(string $address): self
     {
-        if (!TronUtils::isAddress($address)) {
+        if (!\Dsdcr\TronWeb\Support\TronUtils::isAddress($address)) {
             throw new TronException('Invalid contract address');
         }
 

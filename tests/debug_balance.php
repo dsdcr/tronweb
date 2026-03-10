@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/vendor/autoload.php';
+namespace Dsdcr\Tron\TronWeb;
 
 use Dsdcr\TronWeb\TronWeb;
 use Dsdcr\TronWeb\Provider\HttpProvider;

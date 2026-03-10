@@ -81,7 +81,7 @@ class Resource extends BaseModule
         $owner = $ownerAddress ?: $this->tronWeb->getAddress()['hex'];
 
         $transaction = $this->tronWeb->transactionBuilder->freezeBalance(
-            TronUtils::toSun($amount),
+            TronUtils::trxToSun($amount),
             $duration,
             $resource,
             $owner
@@ -300,17 +300,11 @@ class Resource extends BaseModule
      */
     public function getDelegatedResourceV2( ?string $fromAddress = null, ?string $toAddress = null, array $options = ['confirmed' => true] ): array
     {
-        $fromAddr = $fromAddress ? TronUtils::toHex($fromAddress) : $this->tronWeb->getAddress()['hex'];
-        $toAddr = $toAddress ? TronUtils::toHex($toAddress) : $this->tronWeb->getAddress()['hex'];
-
-        // 验证地址格式
-        if (!TronUtils::isAddress(TronUtils::fromHex($fromAddr))) {
-            throw new TronException('Invalid from address provided');
-        }
-
-        if (!TronUtils::isAddress(TronUtils::fromHex($toAddr))) {
-            throw new TronException('Invalid to address provided');
-        }
+        // 使用新的验证和转换服务
+        $fromAddr = $fromAddress ? \Dsdcr\TronWeb\Support\AddressValidator::validateAndNormalize($fromAddress, 'from address', 'hex')
+                                 : $this->tronWeb->getAddress()['hex'];
+        $toAddr = $toAddress ? \Dsdcr\TronWeb\Support\AddressValidator::validateAndNormalize($toAddress, 'to address', 'hex')
+                             : $this->tronWeb->getAddress()['hex'];
 
         $endpointPrefix = $options['confirmed'] ? 'walletsolidity' : 'wallet';
 
@@ -353,7 +347,7 @@ class Resource extends BaseModule
     public function getDelegatedResourceAccountIndexV2( ?string $address = null, array $options = ['confirmed' => true] ): array {
         $addr = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        if (!TronUtils::isAddress(TronUtils::fromHex($addr))) {
+        if (!TronUtils::isAddress($addr)) {
             throw new TronException('Invalid address provided');
         }
 
@@ -403,7 +397,7 @@ class Resource extends BaseModule
     {
         $addr = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        if (!TronUtils::isAddress(TronUtils::fromHex($addr))) {
+        if (!TronUtils::isAddress($addr)) {
             throw new TronException('Invalid address provided');
         }
 
@@ -450,7 +444,7 @@ class Resource extends BaseModule
     {
         $addr = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
-        if (!TronUtils::isAddress(TronUtils::fromHex($addr))) {
+        if (!TronUtils::isAddress($addr)) {
             throw new TronException('Invalid address provided');
         }
 
@@ -503,7 +497,7 @@ class Resource extends BaseModule
         $addr = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
         $ts = $timestamp ?? (int)(microtime(true) * 1000);
 
-        if (!TronUtils::isAddress(TronUtils::fromHex($addr))) {
+        if (!TronUtils::isAddress($addr)) {
             throw new TronException('Invalid address provided');
         }
 

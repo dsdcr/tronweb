@@ -57,11 +57,9 @@ class TransactionWrapper
      */
     public function send(array $options = []): array
     {
-        // 合并默认选项和传入选项
-        $mergedOptions = array_merge($this->options ?? [], $options);
 
         // 签名交易
-        $signedTransaction = $this->tronWeb->trx->signTransaction($this->transaction, $mergedOptions);
+        $signedTransaction = $this->tronWeb->trx->signTransaction($this->transaction);
 
         // 广播交易
         $broadcastResult = $this->tronWeb->trx->sendRawTransaction($signedTransaction);
@@ -106,5 +104,19 @@ class TransactionWrapper
     public function getTransactionId(): ?string
     {
         return $this->transaction['txID'] ?? $this->transaction['transaction']['txID'] ?? null;
+    }
+
+    /**
+     * 设置用于签名的私钥
+     *
+     * 覆盖 TronWeb 实例的默认私钥
+     *
+     * @param string $privateKey 私钥
+     * @return self
+     */
+    public function setPrivateKey(string $privateKey): self
+    {
+        $this->tronWeb->setPrivateKey($privateKey);
+        return $this;
     }
 }

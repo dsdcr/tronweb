@@ -126,7 +126,7 @@ class Account extends BaseModule
      */
     public function getAccount(?string $address = null): array
     {
-        $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
+        $addressHex = $address ? \Dsdcr\TronWeb\Support\TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
         return $this->tronWeb->request('walletsolidity/getaccount', [
             'address' => $addressHex
         ]);
@@ -182,13 +182,19 @@ class Account extends BaseModule
      */
     public function validateAddress(string $address, bool $hex = false): array
     {
-        if ($hex) {
-            $address = TronUtils::toHex($address);
-        }
+        try {
+            // 使用新的验证服务
+            $normalizedAddress = $hex ? $address : \Dsdcr\TronWeb\Support\AddressValidator::validateAndNormalize($address, 'address', 'hex');
 
-        return $this->tronWeb->request('wallet/validateaddress', [
-            'address' => $address
-        ]);
+            return $this->tronWeb->request('wallet/validateaddress', [
+                'address' => $normalizedAddress
+            ]);
+        } catch (TronException $e) {
+            return [
+                'result' => false,
+                'message' => $e->getMessage()
+            ];
+        }
     }
 
     /**
@@ -271,7 +277,7 @@ class Account extends BaseModule
         }
 
         $balance = (int)$account['assetV2'][$tokenId];
-        return $fromTron ? TronUtils::fromSun($balance) : $balance;
+        return $fromTron ? TronUtils::sunToTrx($balance) : $balance;
     }
 
     /**

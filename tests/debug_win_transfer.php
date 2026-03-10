@@ -2,10 +2,8 @@
 /**
  * WIN TRC20 代币转账脚本（测试网）
  *
- * 转账 10 个 WIN 代币（TRC20标准）
+ * 转账 10 个 WIN 代币 (TRC20 标准)
  */
-
-require_once __DIR__ . '/vendor/autoload.php';
 
 use Dsdcr\TronWeb\TronWeb;
 use Dsdcr\TronWeb\Provider\HttpProvider;

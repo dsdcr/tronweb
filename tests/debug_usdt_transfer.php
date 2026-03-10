@@ -5,8 +5,6 @@
  * 转账 10 USDT 从用户地址到目标地址
  */
 
-require_once __DIR__ . '/vendor/autoload.php';
-
 use Dsdcr\TronWeb\TronWeb;
 use Dsdcr\TronWeb\Provider\HttpProvider;
 use Dsdcr\TronWeb\Exception\TronException;

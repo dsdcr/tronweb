@@ -17,6 +17,7 @@ class ContractMethod
     protected array $outputs;
     protected bool $returnWrapper = false;
     protected ?string $fromAddress = null;
+    protected array $sendOptions = [];
 
     /**
      * 创建合约方法实例
@@ -67,17 +68,39 @@ class ContractMethod
      * 使用后，调用写入方法将返回 TransactionWrapper 对象
      * 支持链式调用 ->send() 方法
      *
-     * @param string|null $fromAddress 发送地址（可选）
+     * @param string|array|null $fromAddressOrOptions 发送地址（字符串）或交易选项（数组）
      * @return self
      *
      * @example
      * $contract = $tronWeb->contract($abi)->at($address);
-     * $result = $contract->transfer($to, $amount)->send();
+     *
+     * // 只传递发送地址
+     * $result = $contract->transfer($to, $amount)->send('TAddress...');
+     *
+     * // 传递交易选项（推荐）
+     * $result = $contract->transfer($to, $amount)->send(['feeLimit' => 1000000]);
+     *
+     * // 传递发送地址和选项
+     * $result = $contract->transfer($to, $amount)->send([
+     *     'fromAddress' => 'TAddress...',
+     *     'feeLimit' => 1000000
+     * ]);
      */
-    public function send(?string $fromAddress = null): self
+    public function send($fromAddressOrOptions = null): self
     {
         $this->returnWrapper = true;
-        $this->fromAddress = $fromAddress;
+
+        if (is_string($fromAddressOrOptions)) {
+            // 字符串参数作为 fromAddress
+            $this->fromAddress = $fromAddressOrOptions;
+        } elseif (is_array($fromAddressOrOptions)) {
+            // 数组参数作为 options，保存 fromAddress
+            $this->fromAddress = $fromAddressOrOptions['fromAddress'] ?? null;
+            // 这里需要将 options 传递给 TransactionWrapper
+            // 但我们需要一个地方存储它
+            $this->sendOptions = $fromAddressOrOptions;
+        }
+
         return $this;
     }
 
@@ -143,25 +166,36 @@ class ContractMethod
 
         $params = $this->validateAndPrepareParams($methodParams);
 
-        $result = $this->contract->trigger(
-            $this->name,
-            $params,
-            $options
-        );
-
-        // 如果启用了 wrapper 模式，返回 TransactionWrapper
+        // 如果启用了 wrapper 模式，需要先合并 options（send() 传递的优先级更高）
+        // 这样 triggerSmartContract 在构建交易时就能使用正确的选项
         if ($this->returnWrapper) {
+            // 合并 send() 传递的 options 和方法参数中的 options
+            $finalOptions = array_merge($options, $this->sendOptions);
+
+            // 用合并后的 options 调用 trigger
+            $result = $this->contract->trigger(
+                $this->name,
+                $params,
+                $finalOptions
+            );
+
             $this->returnWrapper = false;
-            $fromAddr = $this->fromAddress ?: ($options['fromAddress'] ?? null);
+            $fromAddr = $this->fromAddress ?: ($finalOptions['fromAddress'] ?? null);
 
             return new \Dsdcr\TronWeb\Modules\Contract\TransactionWrapper(
                 $this->contract->getTronWeb(),
                 $result,
-                $fromAddr
+                $fromAddr,
+                $finalOptions
+            );
+        } else {
+            // 非 wrapper 模式，直接使用原始 options
+            return $this->contract->trigger(
+                $this->name,
+                $params,
+                $options
             );
         }
-
-        return $result;
     }
 
     /**
@@ -217,12 +251,8 @@ class ContractMethod
                 if (!is_string($value)) {
                     throw new TronException("Address parameter must be a string");
                 }
-                // 验证地址格式
-                if (!TronUtils::isAddress($value)) {
-                    throw new TronException("Invalid TRON address: {$value}");
-                }
-                // 将 Base58 地址转换为十六进制格式
-                return TronUtils::toHex($value);
+                // 使用新的验证服务转换地址为十六进制格式
+                return \Dsdcr\TronWeb\Support\AddressValidator::validateAndNormalize($value, 'contract address parameter', 'hex');
 
             case 'uint256':
             case 'uint128':

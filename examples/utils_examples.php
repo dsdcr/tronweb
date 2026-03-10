@@ -34,15 +34,15 @@ try {
     echo "2. 单位换算功能:\n";
 
     $trxAmount = 1.5;
-    $sunAmount = TronUtils::toSun($trxAmount);
-    $convertedBack = TronUtils::fromSun($sunAmount);
+    $sunAmount = TronUtils::trxToSun($trxAmount);
+    $convertedBack = TronUtils::sunToTrx($sunAmount);
 
     echo "   TRX → SUN: $trxAmount TRX = $sunAmount SUN\n";
     echo "   SUN → TRX: $sunAmount SUN = $convertedBack TRX\n";
 
-    // 别名方法测试（toSun 和 fromSun 是 toSun 和 fromSun 的别名）
-    $tronAmount = TronUtils::toSun($trxAmount);
-    $fromTron = TronUtils::fromSun($sunAmount);
+    // 别名方法测试（trxToSun 和 sunToTrx 是 trxToSun 和 sunToTrx 的别名）
+    $tronAmount = TronUtils::trxToSun($trxAmount);
+    $fromTron = TronUtils::sunToTrx($sunAmount);
     echo "   别名方法一致性: " . ($sunAmount === $tronAmount && $convertedBack === $fromTron ? '✓ 一致' : '✗ 不一致') . "\n\n";
 
     // 3. 地址验证功能
@@ -139,8 +139,8 @@ try {
 // 方法总结
 echo "\n📋 Utils 工具函数主要方法:\n";
 echo "- toHex() / fromHex(): 地址转换（支持 Base58 和 Hex 互转）\n";
-echo "- toSun() / fromSun(): 单位换算（1 TRX = 1,000,000 SUN）\n";
-echo "- toSun() / fromSun(): 单位换算别名方法\n";
+echo "- trxToSun() / sunToTrx(): 单位换算（1 TRX = 1,000,000 SUN）\n";
+echo "- trxToSun() / sunToTrx(): 单位换算别名方法\n";
 echo "- isAddress(): 验证 TRON 地址格式\n";
 echo "- stringToHex() / hexToString(): 字符串编码（十六进制）\n";
 echo "- toUtf8() / fromUtf8(): UTF-8 字符串编码\n";

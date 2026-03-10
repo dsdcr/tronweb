@@ -158,16 +158,17 @@ vendor/dsdcr/tronweb/
 |--------|------|--------|------|
 | `create` | - | `TronAddress` | 生成新的随机账户 |
 | `getAccount` | `?string $address` | `array` | 查询账户详细信息 |
+| `getaccounts` | `string $address` | `array` | 查询账户详细信息（v1 API） |
 | `validateAddress` | `string $address`, `bool $hex` | `array` | 验证 Tron 地址的有效性 |
 | `getAccountresource` | `?string $address` | `array` | 查询账户资源详情 |
-| `getTokenBalance` | `int $tokenId`, `?string $address`, `bool $fromSun` | `float` | 查询指定代币的余额 |
+| `getTokenBalance` | `int $tokenId`, `?string $address`, `bool $sunToTrx` | `float` | 查询指定代币的余额 |
 | `getTransactions` | `string $address`, `string $direction`, `int $limit`, `int $offset` | `array` | 查询账户的交易历史 |
 | `changeName` | `string $accountName`, `?string $address` | `array` | 更新账户名称 |
 | `register` | `string $newAccountAddress`, `?string $address` | `array` | 创建新账户 |
 | `createWithPrivateKey` | `string $privateKey` | `TronAddress` | 通过私钥创建账户对象 |
 | `fromPrivateKey` | `string $privateKey`, `string $format` | `string` | 从私钥获取地址 |
-| `generateAccountWithMnemonic` | `?string $mnemonic`, `string $path`, `string $passphrase`, `int $wordCount` | `array` | 通过助记词生成账户（BIP39/BIP44标准） |
-| `getBalances` | `array $accounts`, `bool $fromSun`, `bool $validate` | `array` | 批量查询账户余额 |
+| `generateAccountWithMnemonic` | `?string $mnemonic`, `string $path`, `string $passphrase`, `int $wordCount` | `array` | 通过助记词生成账户（BIP39/BIP44 标准） |
+| `getBalances` | `array $accounts`, `bool $sunToTrx`, `bool $validate` | `array` | 批量查询账户余额 |
 
 ---
 
@@ -180,7 +181,7 @@ vendor/dsdcr/tronweb/
 | 方法名 | 参数 | 返回值 | 说明 |
 |--------|------|--------|------|
 | `getTransactionBuilder` | - | `TransactionBuilder` | 获取 TransactionBuilder 实例 |
-| `getBalance` | `?string $address`, `bool $fromSun` | `float` | 查询指定地址的 TRX 余额 |
+| `getBalance` | `?string $address`, `bool $sunToTrx` | `float` | 查询指定地址的 TRX 余额 |
 | `send` | `string $to`, `float $amount`, `array $options` | `array` | 发送 TRX 交易到指定地址 |
 | `signTransaction` | `array $transaction` | `array` | 对交易进行数字签名 |
 | `sendRawTransaction` | `array $signedTransaction` | `array` | 广播已签名的交易到 Tron 网络 |
@@ -485,10 +486,10 @@ vendor/dsdcr/tronweb/
 | `isValidUrl` | `$url` | `bool` | 链接验证 |
 | `isHex` | `$str` | `bool` | 检查字符串是否为十六进制表示 |
 | `isArray` | `$array` | `bool` | 检查传递的参数是否是数组 |
-| `toSun` | `float $trx` | `int` | 将 TRX 转换为 SUN（最小单位） |
-| `fromSun` | `int $sun` | `float` | 将 SUN 转换为 TRX |
-| `toSun` | `float $trx` | `int` | toSun 的别名（向后兼容） |
-| `fromSun` | `int $sun` | `float` | fromSun 的别名（向后兼容） |
+| `trxToSun` | `float $trx` | `int` | 将 TRX 转换为 SUN（最小单位） |
+| `sunToTrx` | `int $sun` | `float` | 将 SUN 转换为 TRX |
+| `trxToSun` | `float $trx` | `int` | trxToSun 的别名（向后兼容） |
+| `sunToTrx` | `int $sun` | `float` | sunToTrx 的别名（向后兼容） |
 | `toHex` | `string $address` | `string` | 将 Tron 地址转换为十六进制格式 |
 | `fromHex` | `string $hexAddress` | `string` | 将十六进制地址转换为 Tron base58 格式 |
 | `isAddress` | `string $address` | `bool` | 验证 Tron 地址格式 |

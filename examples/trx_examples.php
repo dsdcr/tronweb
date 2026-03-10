@@ -51,7 +51,7 @@ try {
     if ($blockNumber !== 'N/A') {
         try {
             $blockTxCount = $tronWeb->trx->getBlockTransactionCount($blockNumber);
-            echo "   当前区块交易数: " . (is_count($blockTxCount) ? $blockTxCount : 'N/A') . "\n";
+            echo "   当前区块交易数：" . (is_int($blockTxCount) ? $blockTxCount : 'N/A') . "\n";
         } catch (TronException $e) {
             echo "   区块交易数查询失败\n";
         }
@@ -149,7 +149,7 @@ try {
 // 方法总结
 echo "\n📋 Trx 模块主要方法:\n";
 echo "- getTransactionBuilder(): 获取 TransactionBuilder 实例\n";
-echo "- getBalance(\$address, \$fromSun): 查询余额（返回 float 类型）\n";
+echo "- getBalance(\$address, \$sunToTrx): 查询余额（返回 float 类型）\n";
 echo "- send(\$to, \$amount, \$options): 发送 TRX 交易\n";
 echo "- signTransaction(\$transaction): 对交易进行数字签名\n";
 echo "- sendRawTransaction(\$signedTransaction): 广播已签名的交易\n";

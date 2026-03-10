@@ -2,10 +2,8 @@
 /**
  * TRC10 代币转账脚本（测试网）
  *
- * 转账 10 个 TRC10 代币（资产ID: 1005416）
+ * 转账 10 个 TRC10 代币（资产 ID: 1005416）
  */
-
-require_once __DIR__ . '/vendor/autoload.php';
 
 use Dsdcr\TronWeb\TronWeb;
 use Dsdcr\TronWeb\Provider\HttpProvider;

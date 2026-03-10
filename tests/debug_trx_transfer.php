@@ -5,8 +5,6 @@
  * 使用库的 sendTrx() 方法直接转账 10 TRX
  */
 
-require_once __DIR__ . '/vendor/autoload.php';
-
 use Dsdcr\TronWeb\TronWeb;
 use Dsdcr\TronWeb\Provider\HttpProvider;
 use Dsdcr\TronWeb\Exception\TronException;

@@ -4,8 +4,6 @@
  * 演示 TypeScript 风格的合约调用方式
  */
 
-require_once __DIR__ . '/vendor/autoload.php';
-
 use Dsdcr\TronWeb\TronWeb;
 use Dsdcr\TronWeb\Provider\HttpProvider;
 
