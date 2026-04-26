@@ -35,13 +35,13 @@ try {
     echo "   - 转账金额: {$amount} WIN\n\n";
 
     // 验证地址格式
-    if (!$tronWeb->isAddress($fromAddress)) {
+    if (!$tronWeb->utils->isAddress($fromAddress)) {
         throw new TronException('发送地址格式无效');
     }
-    if (!$tronWeb->isAddress($toAddress)) {
+    if (!$tronWeb->utils->isAddress($toAddress)) {
         throw new TronException('接收地址格式无效');
     }
-    if (!$tronWeb->isAddress($winTokenAddress)) {
+    if (!$tronWeb->utils->isAddress($winTokenAddress)) {
         throw new TronException('WIN代币合约地址格式无效');
     }
     echo "   ✅ 地址格式验证通过\n\n";
@@ -136,7 +136,7 @@ try {
     } else {
         echo "\n   ❌ 转账失败\n";
         if (isset($broadcastResult['message'])) {
-            echo "   - 错误信息: " . ($tronWeb->utils->fromUtf8($broadcastResult['message']) ?? $broadcastResult['message']) . "\n";
+            echo "   - 错误信息: " . ($tronWeb->utils->hexToString($broadcastResult['message']) ?? $broadcastResult['message']) . "\n";
         }
     }
 

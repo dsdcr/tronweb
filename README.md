@@ -65,8 +65,8 @@ try {
 $builder = $tronWeb->trx->getTransactionBuilder();
 
 // 1. TRX 转账
-$tx = $builder->sendTrx('接收地址', 1.0);
-echo "TRX 转账: " . $tx['raw_data'] . "\n";
+$tx = $builder->sendTrx('接收地址', 1.0, '发送地址');
+echo "TRX 转账：" . $tx['raw_data'] . "\n";
 
 // 2. 代币转账（TRC10）
 $tx = $builder->sendToken('接收地址', '1000001', 100);
@@ -104,7 +104,7 @@ echo "合约调用: " . $tx['raw_data'] . "\n";
 $builder = $tronWeb->trx->getTransactionBuilder();
 
 // 简单转账（使用默认地址）
-$tx = $builder->sendTrx('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', 1.5);
+$tx = $builder->sendTrx('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', 1.5, 'TTX...');
 
 // 指定发送地址
 $tx = $builder->sendTrx(
@@ -162,11 +162,11 @@ $tx = $builder->sendToken(
 ```php
 $builder = $tronWeb->trx->getTransactionBuilder();
 
-// 冻结带宽
-$tx = $builder->freezeBalance(100, 3, 'BANDWIDTH');
+// 冻结带宽（需要至少 3 天）
+$tx = $builder->freezeBalance(100, 3, 'BANDWIDTH', 'TXYZ...');
 
 // 冻结能量
-$tx = $builder->freezeBalance(100, 3, 'ENERGY');
+$tx = $builder->freezeBalance(100, 3, 'ENERGY', 'TXYZ...');
 
 // 指定所有者地址
 $tx = $builder->freezeBalance(
@@ -174,15 +174,6 @@ $tx = $builder->freezeBalance(
     3,
     'ENERGY',
     'TXYZ...'  // 所有者地址
-);
-
-// 委托资源给其他地址
-$tx = $builder->freezeBalance(
-    100,
-    3,
-    'ENERGY',
-    'TXYZ...',      // 所有者地址
-    'TABC...'       // 接收者地址
 );
 ```
 
@@ -196,11 +187,6 @@ $tx = $builder->freezeBalanceV2(
     100,           // 金额
     'ENERGY',      // 资源类型
     'TXYZ...'      // 地址
-    [
-        'ownerAddress' => 'TXYZ...',    // 所有者地址
-        'lock' => true,                   // 是否锁定
-        'lockPeriod' => 7                 // 锁定周期（天）
-    ]
 );
 
 // 取消待解冻
@@ -437,15 +423,15 @@ vendor/dsdcr/tronweb/
 
 ```php
 // 地址转换
-$hex = $tronWeb->toHex('TNPeeaaFB7K9cmo4uQpcU32zGK8G1NYqeL');
+$hex = $tronWeb->utils->toHex('TNPeeaaFB7K9cmo4uQpcU32zGK8G1NYqeL');
 
 // 地址验证（推荐使用 TronUtils 静态类）
 use Dsdcr\TronWeb\Support\TronUtils;
 $isValid = TronUtils::isAddress('地址');
 
 // 单位换算（1 TRX = 1,000,000 SUN）
-$sun = $tronWeb->utils->toSun(1.5);        // 1500000
-$trx = $tronWeb->utils->fromSun(1500000); // 1.5
+$sun = $tronWeb->utils->trxToSun(1.5);        // 1500000
+$trx = $tronWeb->utils->sunToTrx(1500000); // 1.5
 ```
 
 ## 🧪 测试

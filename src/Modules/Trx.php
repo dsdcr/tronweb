@@ -215,7 +215,7 @@ class Trx extends BaseModule
             // 获取私钥对应的Base58地址
             $base58Address = $this->tronWeb->fromPrivateKey($privateKey);
             // 转换为十六进制格式
-            $hexAddress = strtolower($this->tronWeb->toHex($base58Address));
+            $hexAddress = strtolower(TronUtils::toHex($base58Address));
 
             $ownerAddress = $transaction['raw_data']['contract'][0]['parameter']['value']['owner_address'] ?? null;
 
@@ -1309,7 +1309,7 @@ class Trx extends BaseModule
         }
 
         $response = $this->tronWeb->request('wallet/getassetissuebyname', [
-            'value' => TronUtils::toUtf8($tokenID)
+            'value' => TronUtils::stringToHex($tokenID)
         ], 'post');
 
         // 检查代币是否存在
@@ -1331,10 +1331,10 @@ class Trx extends BaseModule
         return [
             'id' => $tokenData['id'] ?? null,
             'owner_address' => $tokenData['owner_address'] ?? null,
-            'name' => TronUtils::fromUtf8($tokenData['name'] ?? ''),
-            'abbr' => TronUtils::fromUtf8($tokenData['abbr'] ?? ''),
-            'description' => TronUtils::fromUtf8($tokenData['description'] ?? ''),
-            'url' => TronUtils::fromUtf8($tokenData['url'] ?? ''),
+            'name' => TronUtils::hexToString($tokenData['name'] ?? ''),
+            'abbr' => TronUtils::hexToString($tokenData['abbr'] ?? ''),
+            'description' => TronUtils::hexToString($tokenData['description'] ?? ''),
+            'url' => TronUtils::hexToString($tokenData['url'] ?? ''),
             'total_supply' => $tokenData['total_supply'] ?? 0,
             'precision' => $tokenData['precision'] ?? 0,
             'num' => $tokenData['num'] ?? 0,

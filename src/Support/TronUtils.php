@@ -109,7 +109,7 @@ class TronUtils
         if (!is_numeric($trx) || $trx < 0) {
             throw new TronException("Invalid TRX amount: {$trx}");
         }
-        return (int)($trx * self::TRX_TO_SUN);
+        return (int) bcmul((string)$trx, (string)1e6,0);
     }
 
     /**
@@ -123,7 +123,7 @@ class TronUtils
         if (!is_numeric($sun) || $sun < 0) {
             throw new TronException("Invalid SUN amount: {$sun}");
         }
-        return $sun / self::TRX_TO_SUN;
+        return (float) bcdiv((string)$sun, (string)1e6, 8);
     }
 
     /**
@@ -261,47 +261,14 @@ class TronUtils
     }
 
     /**
-     * 将字符串转换为UTF-8十六进制（别名）
-     * 注意：这是一个简化的实现，用于向后兼容
+     * 将字符串转换为十六进制表示
      *
      * @param string $str 输入字符串
      * @return string 十六进制字符串
      */
-    public static function toUtf8(string $str): string
-    {
-        // Simple implementation for backward compatibility
-        $hex = '';
-        for ($i = 0; $i < strlen($str); $i++) {
-            $hex .= dechex(ord($str[$i]));
-        }
-        return $hex;
-    }
-
-    /**
-     * 将十六进制转换为UTF-8字符串（别名）
-     * 注意：这是一个简化的实现，用于向后兼容
-     *
-     * @param string $hex 十六进制字符串
-     * @return string UTF-8字符串
-     */
-    public static function fromUtf8(string $hex): string
-    {
-        // Simple implementation for backward compatibility
-        $str = '';
-        for ($i = 0; $i < strlen($hex) - 1; $i += 2) {
-            $str .= chr(hexdec($hex[$i] . $hex[$i + 1]));
-        }
-        return $str;
-    }
-
-    /**
-     * 将字符串转换为十六进制表示
-     *
-     * @param string $str 输入字符串
-     * @return string 十六进制表示
-     */
     public static function stringToHex(string $str): string
     {
+        // Simple implementation for backward compatibility
         $hex = '';
         for ($i = 0; $i < strlen($str); $i++) {
             $hex .= sprintf('%02x', ord($str[$i]));
@@ -317,10 +284,10 @@ class TronUtils
      */
     public static function hexToString(string $hex): string
     {
+        // Simple implementation for backward compatibility
         $str = '';
-        $length = strlen($hex);
-        for ($i = 0; $i < $length; $i += 2) {
-            $str .= chr(hexdec(substr($hex, $i, 2)));
+        for ($i = 0; $i < strlen($hex) - 1; $i += 2) {
+            $str .= chr(hexdec($hex[$i] . $hex[$i + 1]));
         }
         return $str;
     }

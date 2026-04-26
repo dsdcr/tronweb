@@ -134,14 +134,14 @@ try {
     echo "5. 构建 USDT 转账交易...\n";
 
     // 将地址转换为十六进制
-    $contractAddressHex = $tronWeb->toHex($usdtContractAddress);
+    $contractAddressHex = $tronWeb->utils->toHex($usdtContractAddress);
 
     // 构建触发智能合约交易
     $transaction = $tronWeb->transactionBuilder->triggerSmartContract(
         $usdtAbi,
         $contractAddressHex,
         'transfer',
-        [$tronWeb->toHex($toAddress), (string)$amountIn],
+        [$tronWeb->utils->toHex($toAddress), (string)$amountIn],
         [
             'feeLimit' => 100000000, // 100 TRX (最大值)
             'callValue' => 0,
@@ -181,7 +181,7 @@ try {
     } else {
         echo "\n   ❌ 转账失败\n";
         if (isset($result['message'])) {
-            echo "   - 错误信息: " . $tronWeb->utils->fromUtf8($result['message']) . "\n";
+            echo "   - 错误信息: " . $tronWeb->utils->hexToString($result['message']) . "\n";
         }
     }
 

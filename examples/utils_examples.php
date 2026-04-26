@@ -58,8 +58,8 @@ try {
     echo "4. 字符串编码功能:\n";
 
     $testString = 'Hello Tron!';
-    $hexString = TronUtils::stringToHex($testString);
-    $backToString = TronUtils::hexToString($hexString);
+$hexString = TronUtils::stringToHex($testString);
+$backToString = TronUtils::hexToString($hexString);
 
     echo "   原始字符串: $testString\n";
     echo "   Hex 编码: $hexString\n";
@@ -70,13 +70,13 @@ try {
     echo "5. UTF-8 编码功能:\n";
 
     $utf8String = '你好，TRON！';
-    $utf8Hex = TronUtils::toUtf8($utf8String);
-    $fromUtf8 = TronUtils::fromUtf8($utf8Hex);
+    $hexUtf8 = TronUtils::stringToHex($utf8String);
+    $backToString = TronUtils::hexToString($hexUtf8);
 
     echo "   UTF-8 字符串: $utf8String\n";
-    echo "   UTF-8 Hex: $utf8Hex\n";
-    echo "   解码回 UTF-8: $fromUtf8\n";
-    echo "   UTF-8 一致性: " . ($utf8String === $fromUtf8 ? '✓ 一致' : '✗ 不一致') . "\n\n";
+    echo "   Hex 编码: $hexUtf8\n";
+    echo "   解码回字符串: $backToString\n";
+    echo "   编码一致性: " . ($utf8String === $backToString ? '✓ 一致' : '✗ 不一致') . "\n\n";
 
     // 6. 格式验证功能
     echo "6. 格式验证功能:\n";
@@ -143,7 +143,6 @@ echo "- trxToSun() / sunToTrx(): 单位换算（1 TRX = 1,000,000 SUN）\n";
 echo "- trxToSun() / sunToTrx(): 单位换算别名方法\n";
 echo "- isAddress(): 验证 TRON 地址格式\n";
 echo "- stringToHex() / hexToString(): 字符串编码（十六进制）\n";
-echo "- toUtf8() / fromUtf8(): UTF-8 字符串编码\n";
 echo "- isHex(): Hex 格式验证\n";
 echo "- isValidBlockIdentifier(): 区块标识符验证\n";
 echo "- formatTrx(): TRX 金额格式化\n";

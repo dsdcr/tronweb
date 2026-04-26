@@ -92,7 +92,7 @@ try {
     } else {
         echo "\n   ❌ 转账失败\n";
         if (isset($broadcastResult['message'])) {
-            echo "   - 错误信息: " . ($tronWeb->utils->fromUtf8($broadcastResult['message']) ?? $broadcastResult['message']) . "\n";
+            echo "   - 错误信息: " . ($tronWeb->utils->hexToString($broadcastResult['message']) ?? $broadcastResult['message']) . "\n";
         }
     }
 

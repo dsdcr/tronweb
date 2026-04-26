@@ -40,7 +40,7 @@ try {
     $usdtContract = $tronWeb->contract()->at($usdtAddress);
     $usdtBalanceData = $usdtContract->balanceOf($userAddress);
     // 处理返回值为数组或大数的情况
-    $usdtBalance = $tronWeb->toDecimal($usdtBalanceData);
+    $usdtBalance = $tronWeb->utils->toDecimal($usdtBalanceData);
     echo "💰 账户 USDT 余额: " . ($usdtBalance / 1000000) . "\n";
 
     // 3. 计算兑换参数 (使用 getAmountsIn 确保获得 5 TRX 需要多少 USDT)
@@ -66,7 +66,7 @@ try {
     // 4. 智能检查授权 (Allowance)
     echo "🔐 检查授权额度...";
     $allowanceData = $usdtContract->allowance($userAddress, $routerAddress);
-    $currentAllowance = $tronWeb->toDecimal($allowanceData);
+    $currentAllowance = $tronWeb->utils->toDecimal($allowanceData);
     if ($currentAllowance < $inputWithSlippage) { // 如果授权少于 1 USDT，则重新授权
         echo " 额度不足，正在执行授权...\n";
         $res = $usdtContract->approve($routerAddress, "115792089237316195423570985008687907853269984665640564039457584007913129639935")->send();

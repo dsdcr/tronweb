@@ -284,64 +284,89 @@ class Account extends BaseModule
      * 查询账户的交易历史
      *
      * 获取与指定地址相关的所有交易记录。
-     * 支持按交易方向（转入/转出）筛选。
+     * 支持按交易方向（转入/转出）筛选和TRC20代币交易查询。
      *
-     * @param string $address 地址（Base58格式）
-     *                       要查询交易历史的账户地址
-     * @param string $direction 交易方向筛选（可选，默认'all'）
-     *                         - 'to': 只返回转入交易
-     *                         - 'from': 只返回转出交易
-     *                         - 'all': 返回所有交易
-     * @param int $limit 返回数量限制（可选，默认30，范围1-100）
-     * @param int $offset 分页偏移量（可选，默认0）
+     * @param string $address    钱包地址 (Base58 格式，如 T...)
+     * @param string $direction  交易方向：'all' (全部), 'to' (入账), 'from' (出账)
+     * @param int    $limit      每页返回的交易数量 (最大支持 200)
+     * @param string $contract   合约地址 (留空表示查询 TRX；传 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' 查询 USDT)
+     * @param array  $options    可选的高级过滤参数，包含但不限于：
+     *                           - 'fingerprint'    => (string) 分页标识。从上次请求结果的 meta.fingerprint 中获取，用于查询下一页。
+     *                           - 'min_timestamp'  => (int)    起始时间戳 (毫秒)。查询此时间之后的交易。
+     *                           - 'max_timestamp'  => (int)    结束时间戳 (毫秒)。查询此时间之前的交易。
+     *                           - 'order_by'       => (string) 排序。常用 'block_timestamp,desc' (倒序) 或 'block_timestamp,asc' (正序)。
+     *                           - 'only_confirmed' => (string) 是否仅查询已确认交易。'true' (默认) 或 'false'。
+     *                           - 'only_unconfirmed' => (string) 是否仅查询未确认交易。'true' 或 'false' (仅在查询 TRX 时有效)。
      *
      * @return array 交易列表数组
-     *               每个交易包含时间戳、金额、对方地址等信息
+     *               每个交易包含时间戳、金额、对方地址、代币信息等
      *
      * @throws TronException 当参数无效或查询失败时抛出
      *
      * @example
-     * // 获取所有交易
+     * // 获取所有TRX交易
      * $transactions = $tronWeb->account->getTransactions('TXYZ...');
      *
      * // 获取最近的10笔转入交易
      * $transactions = $tronWeb->account->getTransactions('TXYZ...', 'to', 10);
      *
-     * // 分页查询
-     * $page2 = $tronWeb->account->getTransactions('TXYZ...', 'all', 30, 30);
+     * // 查询USDT代币交易
+     * $usdtTransactions = $tronWeb->account->getTransactions(
+     *     'TXYZ...',
+     *     'all',
+     *     30,
+     *     'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'
+     * );
+     *
+     * // 使用分页指纹继续查询
+     * $nextPage = $tronWeb->account->getTransactions(
+     *     'TXYZ...',
+     *     'all',
+     *     30,
+     *     '',
+     *     ['fingerprint' => 'next_page_token']
+     * );
      *
      * @see \Dsdcr\TronWeb\Modules\Trx::getTransaction() 通过交易ID查询详情
      */
-    public function getTransactions(string $address, string $direction = 'all', int $limit = 30, int $offset = 0): array
-    {
-        $addressHex = TronUtils::toHex($address);
-
-        switch ($direction) {
-            case 'to':
-                return $this->tronWeb->request('walletextension/gettransactionstoaddress', [
-                    'address' => $addressHex,
-                    'limit' => $limit,
-                    'offset' => $offset
-                ]);
-
-            case 'from':
-                return $this->tronWeb->request('walletextension/gettransactionsfromaddress', [
-                    'address' => $addressHex,
-                    'limit' => $limit,
-                    'offset' => $offset
-                ]);
-
-            case 'all':
-            default:
-                return $this->tronWeb->request('walletextension/gettransactionsrelated', [
-                    'address' => $addressHex,
-                    'direction' => 'all',
-                    'limit' => $limit,
-                    'offset' => $offset
-                ]);
+    public function getTransactions(
+        string $address,
+        string $direction = 'all',
+        int $limit = 30,
+        string $contract = '',
+        array $options = []
+    ): array {
+        if (!\Dsdcr\TronWeb\Support\TronUtils::isAddress($address)) {
+            throw new TronException('Invalid TRON address: ' . $address);
         }
-    }
 
+        if ($contract !== '' && !\Dsdcr\TronWeb\Support\TronUtils::isAddress($contract)) {
+            throw new TronException('Invalid TRC20 contract address: ' . $contract);
+        }
+
+        $path = "v1/accounts/" . $address . ($contract !== '' ? "/transactions/trc20" : "/transactions");
+
+        $params = [
+            'limit' => min(max(1, $limit), 200), // 限制1-200之间
+            'only_confirmed' => 'true'
+        ];
+
+        if ($direction === 'to') {
+            $params['only_to'] = 'true';
+        } elseif ($direction === 'from') {
+            $params['only_from'] = 'true';
+        } elseif ($direction !== 'all') {
+            throw new TronException('Invalid direction parameter. Must be "all", "to", or "from"');
+        }
+
+        if ($contract !== '') {
+            $params['contract_address'] = $contract;
+        }
+
+        $finalParams = array_merge($params, $options);
+
+        return $this->tronWeb->request($path, $finalParams, 'get');
+    }
 
     /**
      * 更新账户名称
@@ -378,7 +403,7 @@ class Account extends BaseModule
         $addressHex = $address ? TronUtils::toHex($address) : $this->tronWeb->getAddress()['hex'];
 
         return $this->tronWeb->request('wallet/updateaccount', [
-            'account_name' => TronUtils::toUtf8($accountName),
+            'account_name' => TronUtils::stringToHex($accountName),
             'owner_address' => $addressHex
         ]);
     }

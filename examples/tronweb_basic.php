@@ -33,8 +33,8 @@ try {
     // 地址转换演示
     echo "   - 地址转换演示:\n";
     $testAddress = 'TNPeeaaFB7K9cmo4uQpcU32zGK8G1NYqeL';
-    $hexAddress = $tronWeb->toHex($testAddress);
-    $base58Address = $tronWeb->fromHex($hexAddress);
+    $hexAddress = $tronWeb->utils->toHex($testAddress);
+    $base58Address = $tronWeb->utils->fromHex($hexAddress);
 
     echo "     原始地址: $testAddress\n";
     echo "     Hex 地址: $hexAddress\n";

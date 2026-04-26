@@ -12,7 +12,7 @@ $userAddress = 'TFxaKCCGnbfLr93FjUWBKTJ2mDqJ6KT12h';
 $winTokenAddress = 'TNDSHKGBmgRx9mDYA9CnxPx55nu672yQw2';
 $usdtContract = $tronWeb->contract()->at($winTokenAddress);
 $balanceResult = $usdtContract->balanceOf($userAddress);
-$balance=$tronWeb->toDecimal($balanceResult);
+$balance=$tronWeb->utils->toDecimal($balanceResult);
 // 转换为可读格式（USDT 有6位小数）
 $balanceFormatted = $tronWeb->utils->fromWei($balance,6);
 echo "USDT余额: {$balanceFormatted} USDT\n";

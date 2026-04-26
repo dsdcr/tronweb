@@ -5,6 +5,7 @@ namespace Dsdcr\TronWeb;
 
 use Dsdcr\TronWeb\Modules\Contract\ContractInstance;
 use Dsdcr\TronWeb\Provider\HttpProviderInterface;
+use Dsdcr\TronWeb\Support\HdWallet;
 use Dsdcr\TronWeb\Support\TronUtils;
 use Dsdcr\TronWeb\Exception\TronException;
 use Dsdcr\TronWeb\Provider\TronManager;
@@ -210,8 +211,8 @@ class TronWeb
      */
     public function setAddress(string $address): void
     {
-        $_toHex = \Dsdcr\TronWeb\Support\TronUtils::toHex($address);
-        $_fromHex = \Dsdcr\TronWeb\Support\TronUtils::fromHex($_toHex);
+        $_toHex = TronUtils::toHex($address);
+        $_fromHex = TronUtils::fromHex($_toHex);
 
         $this->address = [
             'hex'       => $_toHex,
@@ -250,38 +251,6 @@ class TronWeb
     }
 
     /**
-     * @deprecated 自v2.1.0起废弃，请直接使用 \Dsdcr\TronWeb\Support\TronUtils::toHex()
-     */
-    public function toHex(string $address): string
-    {
-        return \Dsdcr\TronWeb\Support\TronUtils::toHex($address);
-    }
-
-    /**
-     * @deprecated 自v2.1.0起废弃，请直接使用 \Dsdcr\TronWeb\Support\TronUtils::fromHex()
-     */
-    public function fromHex(string $addressHex): string
-    {
-        return \Dsdcr\TronWeb\Support\TronUtils::fromHex($addressHex);
-    }
-
-    /**
-     * @deprecated 自v2.1.0起废弃，请直接使用 \Dsdcr\TronWeb\Support\TronUtils::toDecimal()
-     */
-    public function toDecimal(mixed $sciNotation): string
-    {
-        return \Dsdcr\TronWeb\Support\TronUtils::toDecimal($sciNotation);
-    }
-
-    /**
-     * @deprecated 自v2.1.0起废弃，请直接使用 \Dsdcr\TronWeb\Support\TronUtils::isAddress()
-     */
-    public function isAddress(string $address): bool
-    {
-        return \Dsdcr\TronWeb\Support\TronUtils::isAddress($address);
-    }
-
-    /**
      * 从私钥获取地址
      *
      * @param string $privateKey
@@ -290,7 +259,7 @@ class TronWeb
     public function fromPrivateKey(string $privateKey): string
     {
         $privateKey = (!is_null($privateKey) ? $privateKey : $this->getPrivateKey());
-        return \Dsdcr\TronWeb\Support\TronUtils::fromPrivateKey($privateKey);
+        return TronUtils::fromPrivateKey($privateKey);
     }
 
     /**
@@ -305,7 +274,7 @@ class TronWeb
      */
     public function fromMnemonic(?string $mnemonic = null, string $path = "m/44'/195'/0'/0/0", string $passphrase = '', int $wordCount= 12): array
     {
-        return \Dsdcr\TronWeb\Support\HdWallet::fromMnemonic($mnemonic, $path, $passphrase,$wordCount);
+        return HdWallet::fromMnemonic($mnemonic, $path, $passphrase,$wordCount);
     }
 
     /**
@@ -319,53 +288,7 @@ class TronWeb
      */
     public function createAccount(int $wordCount= 12, string $passphrase = '', string $path = "m/44'/195'/0'/0/0"): array
     {
-        return \Dsdcr\TronWeb\Support\HdWallet::createAccount( $wordCount, $passphrase,"m/44'/195'/0'/0/0");
-    }
-
-    /**
-     * @deprecated 自v2.1.0起废弃，请直接使用 \Dsdcr\TronWeb\Support\TronUtils::sunToTrx()
-     */
-    public function fromSun(int $sun): float
-    {
-        return \Dsdcr\TronWeb\Support\TronUtils::sunToTrx($sun);
-    }
-
-    /**
-     * 获取TRC20代币的精度（小数位数）
-     *
-     * @param string $tokenAddress 代币合约地址
-     * @return int 精度（小数位数）
-     *
-     * @example
-     * $decimals = $tronWeb->getTokenDecimals('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
-     * // 返回: 6
-     */
-    public function getTokenDecimals(string $tokenAddress): int
-    {
-        try {
-            $trc20Abi = [
-                [
-                    'constant' => true,
-                    'inputs' => [],
-                    'name' => 'decimals',
-                    'outputs' => [['name' => '', 'type' => 'uint8']],
-                    'payable' => false,
-                    'stateMutability' => 'view',
-                    'type' => 'function'
-                ]
-            ];
-
-            $contract = $this->contract($trc20Abi)->at($tokenAddress);
-            $result = $contract->decimals();
-
-            if (is_array($result) && isset($result[0])) {
-                return (int)$result[0];
-            }
-
-            return 6; // 默认精度
-        } catch (\Exception $e) {
-            return 6; // 出错时返回默认值
-        }
+        return HdWallet::createAccount( $wordCount, $passphrase,"m/44'/195'/0'/0/0");
     }
 
     /**

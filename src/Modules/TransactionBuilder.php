@@ -122,10 +122,10 @@ class TransactionBuilder
         $data = [
             'to_address' => $toHex,
             'owner_address' => $fromHex,
-            'amount' => $this->tronWeb->utils->trxToSun($amount),
+            'amount' => TronUtils::trxToSun($amount),
         ];
         if (isset($options['message'])) {
-            $data['extra_data'] = $this->tronWeb->utils->stringToHex($options['message']);
+            $data['extra_data'] = TronUtils::stringToHex($options['message']);
         }
         if (isset($options['permissionId'])) {
             $data['permissionId']= $options['permissionId'];
@@ -211,7 +211,7 @@ class TransactionBuilder
         $data = [
             'owner_address' => $fromHex,
             'to_address' => $toHex,
-            'asset_name' => $this->tronWeb->utils->toUtf8($tokenId),
+            'asset_name' => TronUtils::stringToHex($tokenId),
             'amount' => $amount,
         ];
 
@@ -285,7 +285,7 @@ class TransactionBuilder
         $purchase = $this->tronWeb->request('wallet/participateassetissue', [
             'to_address' => $issuerHex,
             'owner_address' => $buyerHex,
-            'asset_name' => $this->tronWeb->utils->toUtf8($tokenID),
+            'asset_name' => TronUtils::stringToHex($tokenID),
             'amount' => $sunAmount
         ]);
 
@@ -427,11 +427,11 @@ class TransactionBuilder
         }
 
         $data = [
-            'owner_address' => $this->tronWeb->toHex($issuerAddress),
-            'name' => $this->tronWeb->utils->toUtf8($options['name']),
-            'abbr' => $this->tronWeb->utils->toUtf8($options['abbreviation']),
-            'description' => $this->tronWeb->utils->toUtf8($options['description']),
-            'url' => $this->tronWeb->utils->toUtf8($options['url']),
+            'owner_address' => TronUtils::toHex($issuerAddress),
+            'name' => TronUtils::stringToHex($options['name']),
+            'abbr' => TronUtils::stringToHex($options['abbreviation']),
+            'description' => TronUtils::stringToHex($options['description']),
+            'url' => TronUtils::stringToHex($options['url']),
             'total_supply' => intval($options['totalSupply']),
             'trx_num' => intval($options['trxRatio']),
             'num' => intval($options['tokenRatio']),
@@ -505,7 +505,7 @@ class TransactionBuilder
         }
 
         if (!is_null($receiverAddress)) {
-            $receiverAddressHex = $this->tronWeb->toHex($receiverAddress);
+            $receiverAddressHex = TronUtils::toHex($receiverAddress);
             if ($receiverAddressHex !== $ownerAddressHex) {
                 $data['receiver_address'] = $receiverAddressHex;
             }
@@ -544,7 +544,7 @@ class TransactionBuilder
             throw new TronException('Invalid resource provided: Expected "BANDWIDTH" or "ENERGY"');
         }
 
-        $ownerAddressHex = $this->tronWeb->toHex($ownerAddress);
+        $ownerAddressHex = TronUtils::toHex($ownerAddress);
 
         $data = [
             'owner_address' => $ownerAddressHex,
@@ -555,7 +555,7 @@ class TransactionBuilder
         }
 
         if (!is_null($receiverAddress)) {
-            $receiverAddressHex = $this->tronWeb->toHex($receiverAddress);
+            $receiverAddressHex = TronUtils::toHex($receiverAddress);
             if ($receiverAddressHex !== $ownerAddressHex) {
                 $data['receiver_address'] = $receiverAddressHex;
             }
@@ -652,8 +652,8 @@ class TransactionBuilder
         }
 
         $data = [
-            'owner_address' => $this->tronWeb->toHex($address),
-            'unfreeze_balance' => $this->tronWeb->utils->trxToSun($amount),
+            'owner_address' => TronUtils::toHex($address),
+            'unfreeze_balance' => TronUtils::trxToSun($amount),
         ];
 
         if ($resource !== 'BANDWIDTH') {
@@ -688,7 +688,7 @@ class TransactionBuilder
         }
 
         $data = [
-            'owner_address' => $this->tronWeb->toHex($address),
+            'owner_address' => TronUtils::toHex($address),
         ];
 
         // 处理options参数
@@ -724,7 +724,6 @@ class TransactionBuilder
             throw new TronException('Address is required');
         }
 
-        $amount = (int)$amount;
         if ($amount <= 0) {
             throw new TronException('Invalid amount provided');
         }
@@ -733,8 +732,8 @@ class TransactionBuilder
             throw new TronException('Invalid resource provided: Expected "BANDWIDTH" or "ENERGY"');
         }
 
-        $receiverAddressHex = $this->tronWeb->toHex($receiverAddress);
-        $ownerAddressHex = $this->tronWeb->toHex($address);
+        $receiverAddressHex = TronUtils::toHex($receiverAddress);
+        $ownerAddressHex = TronUtils::toHex($address);
 
         if ($receiverAddressHex === $ownerAddressHex) {
             throw new TronException('Receiver address must not be the same as owner address');
@@ -743,7 +742,7 @@ class TransactionBuilder
         $data = [
             'owner_address' => $ownerAddressHex,
             'receiver_address' => $receiverAddressHex,
-            'balance' => $this->tronWeb->utils->trxToSun($amount),
+            'balance' => TronUtils::trxToSun($amount),
         ];
 
         if ($resource !== 'BANDWIDTH') {
@@ -797,8 +796,8 @@ class TransactionBuilder
             throw new TronException('Invalid resource provided: Expected "BANDWIDTH" or "ENERGY"');
         }
 
-        $receiverAddressHex = $this->tronWeb->toHex($receiverAddress);
-        $ownerAddressHex = $this->tronWeb->toHex($address);
+        $receiverAddressHex = TronUtils::toHex($receiverAddress);
+        $ownerAddressHex = TronUtils::toHex($address);
 
         if ($receiverAddressHex === $ownerAddressHex) {
             throw new TronException('Receiver address must not be the same as owner address');
@@ -807,7 +806,7 @@ class TransactionBuilder
         $data = [
             'owner_address' => $ownerAddressHex,
             'receiver_address' => $receiverAddressHex,
-            'balance' => $this->tronWeb->utils->trxToSun($amount),
+            'balance' => TronUtils::trxToSun($amount),
         ];
 
         if ($resource !== 'BANDWIDTH') {
@@ -842,7 +841,7 @@ class TransactionBuilder
         }
 
         $data = [
-            'owner_address' => $this->tronWeb->toHex($address),
+            'owner_address' => TronUtils::toHex($address),
         ];
 
         // 处理options参数
@@ -868,7 +867,7 @@ class TransactionBuilder
     public function withdrawBlockRewards($owner_address = null): array
     {
         $withdraw = $this->tronWeb->request('wallet/withdrawbalance', [
-            'owner_address' => $this->tronWeb->toHex($owner_address)
+            'owner_address' => TronUtils::toHex($owner_address)
         ]);
 
         if (array_key_exists('Error', $withdraw)) {
@@ -903,9 +902,9 @@ class TransactionBuilder
         }
 
         return $this->tronWeb->request('wallet/updateasset', [
-            'owner_address' => $this->tronWeb->toHex($address),
-            'description' => $this->tronWeb->utils->toUtf8($description),
-            'url' => $this->tronWeb->utils->toUtf8($url),
+            'owner_address' => TronUtils::toHex($address),
+            'description' => TronUtils::stringToHex($description),
+            'url' => TronUtils::stringToHex($url),
             'new_limit' => intval($freeBandwidth),
             'new_public_limit' => intval($freeBandwidthLimit)
         ]);
@@ -922,16 +921,16 @@ class TransactionBuilder
      */
     public function updateEnergyLimit(string $contractAddress, int $originEnergyLimit, string $ownerAddress): array
     {
-        $contractAddress = $this->tronWeb->toHex($contractAddress);
-        $ownerAddress = $this->tronWeb->toHex($ownerAddress);
+        $contractAddress = TronUtils::toHex($contractAddress);
+        $ownerAddress = TronUtils::toHex($ownerAddress);
 
         if ($originEnergyLimit < 0 || $originEnergyLimit > 10000000) {
             throw new TronException('Invalid originEnergyLimit provided');
         }
 
         return $this->tronWeb->request('wallet/updateenergylimit', [
-            'owner_address' => $this->tronWeb->toHex($ownerAddress),
-            'contract_address' => $this->tronWeb->toHex($contractAddress),
+            'owner_address' => TronUtils::toHex($ownerAddress),
+            'contract_address' => TronUtils::toHex($contractAddress),
             'origin_energy_limit' => $originEnergyLimit
         ]);
     }
@@ -947,16 +946,16 @@ class TransactionBuilder
      */
     public function updateSetting(string $contractAddress, int $userFeePercentage, string $ownerAddress): array
     {
-        $contractAddress = $this->tronWeb->toHex($contractAddress);
-        $ownerAddress = $this->tronWeb->toHex($ownerAddress);
+        $contractAddress = TronUtils::toHex($contractAddress);
+        $ownerAddress = TronUtils::toHex($ownerAddress);
 
         if ($userFeePercentage < 0 || $userFeePercentage > 1000) {
             throw new TronException('Invalid userFeePercentage provided');
         }
 
         return $this->tronWeb->request('wallet/updatesetting', [
-            'owner_address' => $this->tronWeb->toHex($ownerAddress),
-            'contract_address' => $this->tronWeb->toHex($contractAddress),
+            'owner_address' => TronUtils::toHex($ownerAddress),
+            'contract_address' => TronUtils::toHex($contractAddress),
             'consume_user_resource_percent' => $userFeePercentage
         ]);
     }
@@ -1119,10 +1118,54 @@ class TransactionBuilder
             }
             return $result['transaction'];
         }
-        $message = isset($result['result']['message']) ?
-            $this->tronWeb->utils->fromUtf8($result['result']['message']) : '';
+        $message = isset($result['result']['message']) ? TronUtils::hexToString($result['result']['message']) : '';
 
         throw new TronException('Failed to execute. Error:' . $message);
+    }
+
+    /**
+     * 更新账户权限设置
+     *
+     * 用于设置多重签名账户的权限结构，包括 owner 权限和 active 权限
+     *
+     * @param string $ownerAddress 账户地址（Base58格式）
+     * @param array $ownerPermission owner权限配置，包含：
+     *                               - type: 权限类型（0=owner）
+     *                               - permission_name: 权限名称
+     *                               - threshold: 阈值
+     *                               - keys: 密钥数组，每个元素包含 address 和 weight
+     * @param array|null $witnessPermission 见证权限配置（可选）
+     * @param array|null $activePermissions active权限数组，每个元素包含：
+     *                                       - type: 权限类型（2=active）
+     *                                       - permission_name: 权限名称
+     *                                       - threshold: 阈值
+     *                                       - operations: 操作权限位图
+     *                                       - keys: 密钥数组
+     * @return array 交易数据
+     * @throws TronException
+     */
+    public function updateAccountPermissions(
+        string $ownerAddress,
+        array $ownerPermission,
+        ?array $witnessPermission = null,
+        ?array $activePermissions = null
+    ): array {
+        $ownerAddressHex = TronUtils::toHex($ownerAddress);
+
+        $data = [
+            'owner_address' => $ownerAddressHex,
+            'owner' => $ownerPermission,
+        ];
+
+        if ($witnessPermission !== null) {
+            $data['witness'] = $witnessPermission;
+        }
+
+        if ($activePermissions !== null) {
+            $data['actives'] = $activePermissions;
+        }
+
+        return $this->tronWeb->request('wallet/updateaccountpermission', $data);
     }
 
     /**
@@ -1184,8 +1227,7 @@ class TransactionBuilder
             }
             return $result['transaction'];
         }
-        $message = isset($result['result']['message']) ?
-            $this->tronWeb->utils->fromUtf8($result['result']['message']) : '';
+        $message = isset($result['result']['message']) ? TronUtils::hexToString($result['result']['message']) : '';
 
         throw new TronException('Failed to execute. Error:' . $message);
     }
