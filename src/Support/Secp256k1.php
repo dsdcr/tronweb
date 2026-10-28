@@ -141,15 +141,24 @@ class Secp256K1
 
         // 规范签名：确保 S 值为低值
         $sHigh = gmp_sub($this->n, $s);
+        $sNegated = false;
         if ($canonical && gmp_cmp($sHigh, $s) < 0) {
             $s = $sHigh;
+            $sNegated = true;
         }
 
         $rHex = str_pad(gmp_strval($r, 16), 64, '0', STR_PAD_LEFT);
         $sHex = str_pad(gmp_strval($s, 16), 64, '0', STR_PAD_LEFT);
 
-        // 计算恢复参数
-        $recoveryParam = $this->calculateRecoveryParam($messageHash, $r, $s, $point['y']);
+        // 计算恢复参数：必须基于签名时真实使用的 R 点(point)。
+        // recid 的低比特为 R.y 的奇偶性；高位为 R.x 是否溢出曲线阶 n (R.x >= n)。
+        // 若做了低 S 规范化 (s -> n-s)，等价于把 R 取负，其 y 奇偶性翻转，需要同时翻转奇偶比特。
+        $overflow = gmp_cmp($point['x'], $this->n) >= 0 ? 1 : 0;
+        $parity = gmp_intval(gmp_mod($point['y'], $this->two));
+        if ($sNegated) {
+            $parity ^= 1;
+        }
+        $recoveryParam = $parity + 2 * $overflow;
 
         return new Signature($rHex, $sHex, $recoveryParam);
     }
